@@ -1,0 +1,32 @@
+name: Build Debian Installer ISO
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install simple-cdd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y simple-cdd
+
+      - name: Build ISO
+        run: |
+          mkdir build
+          cp -r profiles build/
+          cd build
+          build-simple-cdd --profiles myprofile --dist bookworm
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/images/*.iso"
+          token: ${{ secrets.GITHUB_TOKEN }}

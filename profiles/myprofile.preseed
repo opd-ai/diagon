@@ -1,0 +1,2 @@
+d-i passwd/root-login boolean false
+d-i time/zone string UTC
