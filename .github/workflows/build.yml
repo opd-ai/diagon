@@ -2,8 +2,6 @@ name: Build Debian Installer ISO
 
 on:
   push:
-    tags:
-      - 'v*'
 
 jobs:
   build:
@@ -23,7 +21,7 @@ jobs:
           mkdir build
           cp -r profiles build/
           cd build
-          build-simple-cdd --profiles myprofile --dist bookworm
+          build-simple-cdd --profiles myprofile --dist forky
 
       - name: Create Release
         uses: ncipollo/release-action@v1
