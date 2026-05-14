@@ -14,7 +14,7 @@ jobs:
       - name: Install simple-cdd
         run: |
           sudo apt-get update
-          sudo apt-get install -y simple-cdd
+          sudo apt-get install -y simple-cdd *archive-keyring
 
       - name: Build ISO
         run: |
