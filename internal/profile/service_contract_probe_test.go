@@ -6,9 +6,66 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestRuntimeProbeOptionsNormalizeAppliesBackoffDefaults(t *testing.T) {
+	t.Parallel()
+
+	options := (RuntimeProbeOptions{Interval: 25 * time.Millisecond}).normalize()
+	if options.BackoffFactor != 2 {
+		t.Fatalf("expected default backoff factor 2, got %v", options.BackoffFactor)
+	}
+	if options.MaxInterval < 4*options.Interval {
+		t.Fatalf("expected max interval to be at least 4x base interval, got %s for interval %s", options.MaxInterval, options.Interval)
+	}
+}
+
+func TestWaitForServiceReadyUsesBackoff(t *testing.T) {
+	t.Parallel()
+
+	readyAfter := 150 * time.Millisecond
+	start := time.Now()
+	var requestCount int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&requestCount, 1)
+		if time.Since(start) < readyAfter {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+
+	service := ServiceDefinition{
+		Name:      "paywall",
+		Listen:    mustAddr(t, server.URL),
+		HealthURL: server.URL,
+	}
+
+	options := RuntimeProbeOptions{
+		Timeout:        500 * time.Millisecond,
+		Interval:       10 * time.Millisecond,
+		MaxInterval:    80 * time.Millisecond,
+		BackoffFactor:  2,
+		ConnectTimeout: 20 * time.Millisecond,
+		HTTPTimeout:    20 * time.Millisecond,
+	}.normalize()
+
+	readyAt, err := waitForServiceReady(service, options, time.Now().Add(options.Timeout))
+	if err != nil {
+		t.Fatalf("waitForServiceReady() returned error: %v", err)
+	}
+	if readyAt.IsZero() {
+		t.Fatal("expected non-zero ready timestamp")
+	}
+	if got := atomic.LoadInt32(&requestCount); got > 7 {
+		t.Fatalf("expected capped backoff to limit probe attempts, got %d health requests", got)
+	}
+}
 
 func TestAggregateServiceHealthReady(t *testing.T) {
 	t.Parallel()

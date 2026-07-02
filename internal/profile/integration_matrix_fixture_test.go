@@ -1,9 +1,11 @@
 package profile
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -57,6 +59,32 @@ func TestIntegrationMatrixServiceContractFixturesAreValid(t *testing.T) {
 			if component.BuildInput == "" {
 				t.Fatalf("environment[%d].components.%s.build_input must be set", envIdx, name)
 			}
+		}
+
+		if !strings.HasPrefix(env.Components.Diagon.BuildInput, "./") {
+			t.Fatalf("environment[%d].components.diagon.build_input must use a local package path, got %q", envIdx, env.Components.Diagon.BuildInput)
+		}
+
+		for _, component := range []struct {
+			name      string
+			component IntegrationMatrixComponent
+		}{
+			{name: "store", component: env.Components.Store},
+			{name: "paywall", component: env.Components.Paywall},
+		} {
+			expectedPrefix := fmt.Sprintf("github.com/%s/", component.component.Repo)
+			expectedSuffix := fmt.Sprintf("@%s", component.component.Version)
+			if !strings.HasPrefix(component.component.BuildInput, expectedPrefix) {
+				t.Fatalf("environment[%d].components.%s.build_input must start with %q, got %q", envIdx, component.name, expectedPrefix, component.component.BuildInput)
+			}
+			if !strings.HasSuffix(component.component.BuildInput, expectedSuffix) {
+				t.Fatalf("environment[%d].components.%s.build_input must end with %q, got %q", envIdx, component.name, expectedSuffix, component.component.BuildInput)
+			}
+		}
+
+		expectedI2PDBuildInputPrefix := fmt.Sprintf("debian:%s/i2pd=", env.DebianCodename)
+		if !strings.HasPrefix(env.Components.I2PD.BuildInput, expectedI2PDBuildInputPrefix) {
+			t.Fatalf("environment[%d].components.i2pd.build_input must start with %q, got %q", envIdx, expectedI2PDBuildInputPrefix, env.Components.I2PD.BuildInput)
 		}
 
 		if env.ContractFixtures.Primary == "" {

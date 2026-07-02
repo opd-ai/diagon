@@ -203,6 +203,7 @@ When `--probe-live` is enabled, `diagonctl` also performs runtime checks:
 
 - TCP listener reachability for each service `listen` address
 - HTTP readiness checks for each service `health_url` (expects `2xx`)
+- Capped retry backoff between readiness attempts so transient startup races do not require a fixed high-frequency poll rate
 - TCP listener reachability for each expected i2pd tunnel listener
 - Dependency sequencing validation (`depends_on` services must become ready first)
 - Startup-order signal warnings when higher-order services become ready before lower-order services
@@ -227,10 +228,10 @@ The GitHub Actions workflow is now split into explicit Stage 1 through Stage 8 j
 
 Integration versions and contract fixtures are sourced from [.github/integration-matrix.json](.github/integration-matrix.json). This matrix pins a Debian baseline (`debian_version` + `debian_codename`), freezes packaging dependencies (`package_dependencies`), pins upstream build inputs for Store and Paywall, and defines the service-contract fixtures executed in CI contract testing.
 
-- Stage 1: static checks (`actionlint`, `gofmt`, `go vet`)
-- Stage 2: build artifacts and build-metadata emission for Diagon/Store/Paywall/i2pd pinned matrix entries
-- Stage 3: unit tests (`go test ./...`)
-- Stage 4: integration bootstrap and live readiness probes (`--probe-live`)
+- Stage 1: static checks for pinned matrix components, including pinned-ref resolution for every repo plus `gofmt` and `go vet` for Diagon, Store, and Paywall
+- Stage 2: Debian-bookworm artifact builds for Diagon, Store, and Paywall in a pinned `golang:<go_version>-<debian_codename>` container, plus build-metadata emission for the full matrix
+- Stage 3: readonly unit tests for Diagon, Store, and Paywall (`GOFLAGS=-mod=readonly go test ./...`) with lockfile cleanliness enforced after each run
+- Stage 4: integration bootstrap and live readiness probes (`--probe-live`), plus a timeout regression that proves readiness failures surface when a required service never becomes ready
 - Stage 5: contract tests for profile + matrix-defined service-contract fixture compatibility
 - Stage 6: generated smoke plan plus end-to-end smoke and graceful-restart validation with stubbed wallet mode
 - Stage 7: Debian packaging verification (`simple-cdd`, ISO build output checks)

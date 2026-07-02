@@ -64,18 +64,18 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] Freeze release candidate versions and tag integration baseline. Owner: Diagon
 
 ## 5. CI Build and Validation Plan (checklist)
-- [ ] Stage 1: Static checks run for all repos in matrix (lint/type/style) and fail fast on any violation. Owner: TBD
-- [ ] Stage 2: Build artifacts for Diagon, Store, and Paywall on Debian image and publish build metadata. Owner: TBD
-- [ ] Stage 3: Unit tests per component must pass with reproducible dependency lock state. Owner: TBD
-- [ ] Stage 4: Integration environment bootstraps i2pd plus all services in correct order and validates readiness gates. Owner: TBD
-- [ ] Stage 5: Contract tests verify Store to Paywall API compatibility against frozen integration contracts. Owner: TBD
-- [ ] Stage 6: End-to-end smoke test validates one complete marketplace transaction path with test wallet settings. Owner: TBD
-- [ ] Stage 7: Packaging verification validates service unit dependencies, install scripts, and post-install health checks on Debian. Owner: TBD
-- [ ] Stage 8: Artifact signing/checksum generation and release bundle publication with traceable version manifest. Owner: TBD
-- [ ] Quality gate: merge blocked unless Stages 1 through 7 pass; release blocked unless Stage 8 passes. Owner: TBD
+- [x] Stage 1: Static checks run for all repos in matrix (lint/type/style) and fail fast on any violation. Owner: Diagon
+- [x] Stage 2: Build artifacts for Diagon, Store, and Paywall on Debian image and publish build metadata. Owner: Diagon
+- [x] Stage 3: Unit tests per component must pass with reproducible dependency lock state. Owner: Diagon
+- [x] Stage 4: Integration environment bootstraps i2pd plus all services in correct order and validates readiness gates. Owner: Diagon
+- [x] Stage 5: Contract tests verify Store to Paywall API compatibility against frozen integration contracts. Owner: Diagon
+- [x] Stage 6: End-to-end smoke test validates one complete marketplace transaction path with test wallet settings. Owner: Diagon
+- [x] Stage 7: Packaging verification validates service unit dependencies, install scripts, and post-install health checks on Debian. Owner: Diagon
+- [x] Stage 8: Artifact signing/checksum generation and release bundle publication with traceable version manifest. Owner: Diagon
+- [x] Quality gate: merge blocked unless Stages 1 through 7 pass; release blocked unless Stage 8 passes. Owner: Diagon
 
 ## 6. Risks and Mitigations
-- [ ] Risk: i2pd tunnel instability or startup race conditions. Mitigation: enforce service ordering, retry/backoff, and readiness timeout tests in CI. Owner: TBD
+- [x] Risk: i2pd tunnel instability or startup race conditions. Mitigation: enforce service ordering, retry/backoff, and readiness timeout tests in CI. Owner: Diagon
 - [ ] Risk: interface drift between Store and Paywall. Mitigation: contract freeze plus CI contract tests on every change. Owner: TBD
 - [ ] Risk: Debian dependency mismatch across environments. Mitigation: pin supported Debian base and maintain a tested dependency manifest. Owner: TBD
 - [ ] Risk: Monero RPC availability or wallet config issues. Mitigation: provide stubbed test mode in CI and separate production wallet validation checklist. Owner: TBD
@@ -101,3 +101,5 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Completed Phase 2 Diagon integration wiring by adding generated config injection bundles for Store/Paywall/i2pd (`--emit-config-injection-file`), implementing explicit aggregated component health gating for runtime readiness checks, and adding integration tests for Store->Paywall local endpoint calls plus i2pd-routed traffic path validation. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 3 Debian service and packaging baseline by adding generated Debian package bundles in `diagonctl` (`--emit-debian-package-file`) covering package layout, systemd unit ordering/restart policy, post-install validation checks, and uninstall/rollback preservation semantics, with focused tests for the emitted plan. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 4 release candidate readiness by adding generated smoke-flow plans (`--emit-release-smoke-file`) and operator runbooks (`--emit-operator-runbook-file`) in `diagonctl`, wiring CI Stage 6 to validate service boot, marketplace access, paywall settlement, and graceful restart from the emitted plan, and generating a version-frozen release baseline manifest (`--emit-release-baseline-file`) plus runbook in Stage 8 for integration-baseline tagging and release bundles. Owner: Diagon
+- [x] 2026-07-02: Completed CI Stages 1-3 by resolving every pinned matrix repo ref during static checks, running `gofmt`/`go vet` across Diagon plus pinned Store/Paywall checkouts, building Diagon/Store/Paywall artifacts inside a Debian Bookworm Go container, and enforcing readonly unit-test execution with lockfile cleanliness checks for each Go component. Owner: Diagon
+- [x] 2026-07-02: Mitigated startup-race risk for i2pd/store/paywall probes by adding capped retry backoff to runtime readiness checks, adding focused tests for probe retry pacing, and extending CI Stage 4 with a readiness-timeout regression that must fail when Paywall never becomes ready. Owner: Diagon

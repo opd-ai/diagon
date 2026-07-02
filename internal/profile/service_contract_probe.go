@@ -14,6 +14,8 @@ import (
 type RuntimeProbeOptions struct {
 	Timeout        time.Duration
 	Interval       time.Duration
+	MaxInterval    time.Duration
+	BackoffFactor  float64
 	ConnectTimeout time.Duration
 	HTTPTimeout    time.Duration
 	SequenceJitter time.Duration
@@ -39,6 +41,8 @@ func DefaultRuntimeProbeOptions() RuntimeProbeOptions {
 	return RuntimeProbeOptions{
 		Timeout:        30 * time.Second,
 		Interval:       500 * time.Millisecond,
+		MaxInterval:    2 * time.Second,
+		BackoffFactor:  2,
 		ConnectTimeout: 1 * time.Second,
 		HTTPTimeout:    2 * time.Second,
 		SequenceJitter: 50 * time.Millisecond,
@@ -52,6 +56,15 @@ func (o RuntimeProbeOptions) normalize() RuntimeProbeOptions {
 	}
 	if o.Interval <= 0 {
 		o.Interval = defaults.Interval
+	}
+	if o.MaxInterval <= 0 {
+		o.MaxInterval = maxDuration(defaults.MaxInterval, 4*o.Interval)
+	}
+	if o.MaxInterval < o.Interval {
+		o.MaxInterval = o.Interval
+	}
+	if o.BackoffFactor < 1 {
+		o.BackoffFactor = defaults.BackoffFactor
 	}
 	if o.ConnectTimeout <= 0 {
 		o.ConnectTimeout = defaults.ConnectTimeout
@@ -218,6 +231,7 @@ func AggregateServiceHealth(services []ServiceDefinition, options RuntimeProbeOp
 
 func waitForServiceReady(service ServiceDefinition, options RuntimeProbeOptions, deadline time.Time) (time.Time, error) {
 	var lastErr error
+	delay := options.Interval
 
 	for {
 		now := time.Now()
@@ -236,7 +250,11 @@ func waitForServiceReady(service ServiceDefinition, options RuntimeProbeOptions,
 			return time.Now(), nil
 		}
 
-		time.Sleep(options.Interval)
+		sleepFor := minDuration(delay, time.Until(deadline))
+		if sleepFor > 0 {
+			time.Sleep(sleepFor)
+		}
+		delay = nextProbeDelay(delay, options)
 	}
 }
 
@@ -261,6 +279,7 @@ func probeTunnelReadiness(tunnels []I2PDTunnel, options RuntimeProbeOptions) Res
 
 func waitForTunnelReady(tunnel I2PDTunnel, options RuntimeProbeOptions, deadline time.Time) error {
 	var lastErr error
+	delay := options.Interval
 
 	for {
 		if time.Now().After(deadline) {
@@ -276,8 +295,34 @@ func waitForTunnelReady(tunnel I2PDTunnel, options RuntimeProbeOptions, deadline
 			lastErr = err
 		}
 
-		time.Sleep(options.Interval)
+		sleepFor := minDuration(delay, time.Until(deadline))
+		if sleepFor > 0 {
+			time.Sleep(sleepFor)
+		}
+		delay = nextProbeDelay(delay, options)
 	}
+}
+
+func nextProbeDelay(current time.Duration, options RuntimeProbeOptions) time.Duration {
+	if current <= 0 {
+		return options.Interval
+	}
+
+	next := time.Duration(float64(current) * options.BackoffFactor)
+	if next < options.Interval {
+		next = options.Interval
+	}
+	if next > options.MaxInterval {
+		next = options.MaxInterval
+	}
+	return next
+}
+
+func minDuration(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func probeServiceListen(addr string, timeout time.Duration) error {
