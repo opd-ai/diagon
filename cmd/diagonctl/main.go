@@ -20,6 +20,7 @@ func main() {
 		contractPath  string
 		bootstrapPath string
 		configOutPath string
+		debianOutPath string
 		probeLive     bool
 		probeTimeout  time.Duration
 		probeEvery    time.Duration
@@ -33,6 +34,7 @@ func main() {
 	flag.StringVar(&contractPath, "service-contract-file", "", "optional JSON service integration contract file for Store/Paywall/i2pd checks")
 	flag.StringVar(&bootstrapPath, "bootstrap-profile-file", "", "optional JSON local bootstrap profile for single-host startup defaults and secrets")
 	flag.StringVar(&configOutPath, "emit-config-injection-file", "", "optional output path for generated Store/Paywall/i2pd injected config bundle (use '-' for stdout)")
+	flag.StringVar(&debianOutPath, "emit-debian-package-file", "", "optional output path for generated Debian package baseline bundle (use '-' for stdout)")
 	flag.BoolVar(&probeLive, "probe-live", false, "actively probe service health/listen endpoints from service contract")
 	flag.DurationVar(&probeTimeout, "probe-timeout", 30*time.Second, "max time to wait for live service probes")
 	flag.DurationVar(&probeEvery, "probe-interval", 500*time.Millisecond, "retry interval for live service probes")
@@ -144,6 +146,24 @@ func main() {
 		}
 	}
 
+	trimmedDebianOut := strings.TrimSpace(debianOutPath)
+	if trimmedDebianOut != "" {
+		if bootstrapProfile == nil || loadedContract == nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-debian-package-file requires both bootstrap and service contract inputs"), &result)
+			os.Exit(2)
+		}
+
+		plan, buildErr := profile.BuildDebianPackagePlan(*bootstrapProfile, *loadedContract)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteDebianPackagePlan(trimmedDebianOut, plan); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
 	if strings.EqualFold(outputFmt, "json") {
 		status := "ok"
 		if result.HasErrors() || (strict && len(result.Warnings) > 0) {
@@ -157,6 +177,7 @@ func main() {
 			BootstrapProfileFile string                            `json:"bootstrap_profile_file,omitempty"`
 			ServiceContractFile  string                            `json:"service_contract_file,omitempty"`
 			ConfigInjectionFile  string                            `json:"config_injection_file,omitempty"`
+			DebianPackageFile    string                            `json:"debian_package_file,omitempty"`
 			ProbeLive            bool                              `json:"probe_live"`
 			ProbeTimeout         string                            `json:"probe_timeout,omitempty"`
 			ProbeInterval        string                            `json:"probe_interval,omitempty"`
@@ -171,6 +192,7 @@ func main() {
 			BootstrapProfileFile: strings.TrimSpace(bootstrapPath),
 			ServiceContractFile:  resolvedContractPath,
 			ConfigInjectionFile:  trimmedConfigOut,
+			DebianPackageFile:    trimmedDebianOut,
 			ProbeLive:            probeLive,
 			AggregatedHealth:     aggregatedHealth,
 			Strict:               strict,

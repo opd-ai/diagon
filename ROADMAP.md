@@ -53,10 +53,10 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] Add integration test proving traffic path works with i2pd-enabled routing configuration. Owner: Diagon
 
 ### Phase 3: Debian Service and Packaging Baseline
-- [ ] Define package layout expectations for binaries, configs, logs, and state directories. Owner: TBD
-- [ ] Define system service units and startup dependencies (i2pd before Store/Paywall; restart policy set). Owner: TBD
-- [ ] Define post-install checks: services enabled, config files present, health endpoints reachable locally. Owner: TBD
-- [ ] Define uninstall/rollback expectations that preserve user data and cleanly stop services. Owner: TBD
+- [x] Define package layout expectations for binaries, configs, logs, and state directories. Owner: Diagon
+- [x] Define system service units and startup dependencies (i2pd before Store/Paywall; restart policy set). Owner: Diagon
+- [x] Define post-install checks: services enabled, config files present, health endpoints reachable locally. Owner: Diagon
+- [x] Define uninstall/rollback expectations that preserve user data and cleanly stop services. Owner: Diagon
 
 ### Phase 4: Release Candidate Readiness
 - [ ] Run end-to-end smoke flow: service boot, marketplace access path, paywall validation, graceful restart. Owner: TBD
@@ -99,3 +99,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Completed Phase 0 contract freeze by pinning Debian baseline/dependency metadata in `.github/integration-matrix.json`, enforcing i2pd tunnel type and local port-mapping contract checks in `diagonctl`, and extending fixtures/tests to cover the frozen integration contract set. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 1 local single-host bootstrap by adding `profiles/local-single-host-bootstrap.json`, validating deterministic startup/default local wiring and secret-only operator inputs in `diagonctl`, and extending live probes/CI Stage 4 to verify i2pd tunnel listener reachability plus Store/Paywall readiness under stubbed local bootstrap defaults. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 2 Diagon integration wiring by adding generated config injection bundles for Store/Paywall/i2pd (`--emit-config-injection-file`), implementing explicit aggregated component health gating for runtime readiness checks, and adding integration tests for Store->Paywall local endpoint calls plus i2pd-routed traffic path validation. Owner: Diagon
+- [x] 2026-07-02: Completed Phase 3 Debian service and packaging baseline by adding generated Debian package bundles in `diagonctl` (`--emit-debian-package-file`) covering package layout, systemd unit ordering/restart policy, post-install validation checks, and uninstall/rollback preservation semantics, with focused tests for the emitted plan. Owner: Diagon

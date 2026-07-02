@@ -103,6 +103,29 @@ go run ./cmd/diagonctl \
 
 Use `--emit-config-injection-file -` to write the generated bundle to stdout.
 
+### Generate Debian package baseline bundle (Phase 3 packaging)
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--service-contract-file profiles/service-contract.json \
+	--emit-debian-package-file /tmp/diagon-debian-package.json \
+	--format json
+```
+
+Use `--emit-debian-package-file -` to write the generated packaging baseline to stdout.
+
+The Debian package baseline generator defines:
+
+- Package layout expectations for binaries, configs, logs, state, and runtime directories
+- Systemd unit definitions for `diagon-i2pd.service`, `diagon-paywall.service`, and `diagon-store.service`
+- Startup dependencies derived from the service contract (`i2pd` before `paywall`, `paywall` before `store`)
+- Post-install validation checks for unit enablement, config-file presence, and local health endpoints
+- Uninstall and rollback expectations that stop services in reverse order, preserve `/etc/diagon`, `/var/lib/diagon`, and `/var/log/diagon`, and remove only `/run/diagon`
+
 The service contract validator enforces:
 
 - Required service definitions for `i2pd`, `store`, and `paywall`
