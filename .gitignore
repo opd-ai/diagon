@@ -31,3 +31,10 @@ go.work.sum
 # .idea/
 # .vscode/
 build
+
+# CI scratch directory (integration stubs, pid files, generated harness inputs)
+.tmp/
+
+# CI build/output artifacts
+artifacts/
+release-artifacts/
