@@ -402,6 +402,153 @@ func WriteOperatorRunbook(path, runbook string) error {
 	return nil
 }
 
+func BuildWalletValidationChecklist(bootstrap BootstrapProfile, contract ServiceContract, environment *IntegrationEnvironment) (string, error) {
+	contractResult := ValidateServiceContractDefinition(contract)
+	if contractResult.HasErrors() {
+		return "", fmt.Errorf("invalid service contract: %s", strings.Join(contractResult.Errors, "; "))
+	}
+
+	bootstrapResult := ValidateBootstrapProfileDefinition(bootstrap, &contract)
+	if bootstrapResult.HasErrors() {
+		return "", fmt.Errorf("invalid bootstrap profile: %s", strings.Join(bootstrapResult.Errors, "; "))
+	}
+
+	componentByName := make(map[string]BootstrapComponent, len(bootstrap.Components))
+	for _, component := range bootstrap.Components {
+		componentByName[strings.TrimSpace(component.Name)] = component
+	}
+
+	paywallComponent, exists := componentByName[requiredServicePaywall]
+	if !exists {
+		return "", fmt.Errorf("bootstrap profile must define %q component", requiredServicePaywall)
+	}
+
+	walletRPCURL := strings.TrimSpace(paywallComponent.Settings["wallet_rpc_url"])
+	if walletRPCURL == "" {
+		return "", fmt.Errorf("bootstrap component %q must define settings.wallet_rpc_url", requiredServicePaywall)
+	}
+
+	paymentPath := strings.TrimSpace(paywallComponent.Settings["smoke_payment_path"])
+	if paymentPath == "" {
+		paymentPath = "/pay"
+	}
+	paymentPath, err := normalizedRequestPath(paymentPath, "paywall settings.smoke_payment_path")
+	if err != nil {
+		return "", err
+	}
+
+	secretByName := make(map[string]BootstrapSecret, len(bootstrap.Secrets))
+	for _, secret := range bootstrap.Secrets {
+		secretByName[strings.TrimSpace(secret.Name)] = secret
+	}
+
+	secretRefs := uniqueSortedStrings(paywallComponent.SecretRefs)
+
+	var builder strings.Builder
+	builder.WriteString("# Diagon Production Wallet Validation Checklist\n\n")
+	builder.WriteString("This checklist validates Monero wallet RPC readiness for production deployments after CI has passed in stubbed mode.\n\n")
+	if environment != nil {
+		builder.WriteString("- Environment: ")
+		builder.WriteString(strings.TrimSpace(environment.Environment))
+		builder.WriteString("\n")
+		builder.WriteString("- Debian: ")
+		builder.WriteString(strings.TrimSpace(environment.DebianVersion))
+		builder.WriteString(" (")
+		builder.WriteString(strings.TrimSpace(environment.DebianCodename))
+		builder.WriteString(")\n")
+		builder.WriteString("- Component versions: diagon=")
+		builder.WriteString(strings.TrimSpace(environment.Components.Diagon.Version))
+		builder.WriteString(", store=")
+		builder.WriteString(strings.TrimSpace(environment.Components.Store.Version))
+		builder.WriteString(", paywall=")
+		builder.WriteString(strings.TrimSpace(environment.Components.Paywall.Version))
+		builder.WriteString(", i2pd=")
+		builder.WriteString(strings.TrimSpace(environment.Components.I2PD.Version))
+		builder.WriteString("\n\n")
+	}
+
+	builder.WriteString("## CI Baseline\n\n")
+	builder.WriteString("- [ ] Confirm CI Stage 6 smoke output reports `wallet_mode: stubbed`.\n")
+	builder.WriteString("- [ ] Confirm production deployment replaces stubbed wallet mode with a real wallet RPC target.\n\n")
+
+	builder.WriteString("## Secrets And Endpoint Preflight\n\n")
+	builder.WriteString("- Wallet RPC URL: `")
+	builder.WriteString(walletRPCURL)
+	builder.WriteString("`\n")
+	builder.WriteString("- Paywall health endpoint: `")
+	builder.WriteString(strings.TrimSpace(paywallComponent.HealthURL))
+	builder.WriteString("`\n")
+	builder.WriteString("- Paywall settlement endpoint path: `")
+	builder.WriteString(paymentPath)
+	builder.WriteString("`\n")
+	if len(secretRefs) == 0 {
+		builder.WriteString("- [ ] No paywall secret references were declared; verify production credentials are injected externally.\n")
+	} else {
+		for _, secretRef := range secretRefs {
+			secret := secretByName[secretRef]
+			builder.WriteString("- [ ] Verify secret `")
+			builder.WriteString(secretRef)
+			builder.WriteString("` is present via ")
+			builder.WriteString(strings.TrimSpace(secret.Source))
+			builder.WriteString(" -> `")
+			builder.WriteString(strings.TrimSpace(secret.Ref))
+			builder.WriteString("`\n")
+		}
+	}
+	builder.WriteString("\n")
+
+	builder.WriteString("## Wallet RPC Validation Commands\n\n```bash\n")
+	builder.WriteString("curl -fsS -X POST ")
+	builder.WriteString(walletRPCURL)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  -H 'Content-Type: application/json' \\\n")
+	builder.WriteString("  --data '{\"jsonrpc\":\"2.0\",\"id\":\"diagon-wallet-check\",\"method\":\"get_version\"}'\n")
+	builder.WriteString("\n")
+	builder.WriteString("curl -fsS ")
+	builder.WriteString(strings.TrimSpace(paywallComponent.HealthURL))
+	builder.WriteString("\n")
+	builder.WriteString("\n")
+	builder.WriteString("curl -fsS -X POST http://")
+	builder.WriteString(strings.TrimSpace(paywallComponent.Listen))
+	builder.WriteString(paymentPath)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  -H 'Content-Type: application/json' \\\n")
+	builder.WriteString("  --data '{\"amount\":1,\"currency\":\"XMR\"}'\n")
+	builder.WriteString("```\n\n")
+
+	builder.WriteString("## Success Criteria\n\n")
+	builder.WriteString("- [ ] Wallet RPC responds to `get_version` without timeout or auth errors.\n")
+	builder.WriteString("- [ ] Paywall health endpoint returns `2xx` after production wallet settings are applied.\n")
+	builder.WriteString("- [ ] Paywall settlement path accepts a test request and returns a successful response.\n")
+	builder.WriteString("- [ ] Operator captures command output and rollback steps in deployment records.\n")
+
+	return builder.String(), nil
+}
+
+func WriteWalletValidationChecklist(path, checklist string) error {
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return fmt.Errorf("wallet validation checklist output path cannot be empty")
+	}
+
+	raw := []byte(checklist)
+	if !strings.HasSuffix(checklist, "\n") {
+		raw = append(raw, '\n')
+	}
+
+	if trimmedPath == "-" {
+		if _, err := os.Stdout.Write(raw); err != nil {
+			return fmt.Errorf("write wallet validation checklist to stdout: %w", err)
+		}
+		return nil
+	}
+
+	if err := os.WriteFile(trimmedPath, raw, 0o644); err != nil {
+		return fmt.Errorf("write wallet validation checklist to %s: %w", trimmedPath, err)
+	}
+	return nil
+}
+
 func BuildReleaseCandidateBaseline(matrix IntegrationMatrix, environmentName string) (ReleaseCandidateBaseline, error) {
 	environment, err := matrix.EnvironmentByName(environmentName)
 	if err != nil {

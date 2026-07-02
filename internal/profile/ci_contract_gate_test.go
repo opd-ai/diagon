@@ -63,6 +63,30 @@ func TestBuildWorkflowStage7UsesDebianDependencyManifest(t *testing.T) {
 	}
 }
 
+func TestBuildWorkflowIncludesWalletChecklistAndStubbedCIAssertions(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustRepoRoot(t)
+	workflowPath := filepath.Join(repoRoot, ".github", "workflows", "build.yml")
+	contents := string(mustReadFile(t, workflowPath))
+
+	if !strings.Contains(contents, "--emit-wallet-validation-checklist-file artifacts/wallet-validation-checklist.md \\") {
+		t.Fatal("stage-6-e2e-smoke must emit wallet validation checklist artifact")
+	}
+
+	if !strings.Contains(contents, "jq -e '.wallet_mode == \"stubbed\"' artifacts/stage-6-smoke-plan.json") {
+		t.Fatal("stage-6-e2e-smoke must assert stubbed wallet mode in emitted smoke plan")
+	}
+
+	if !strings.Contains(contents, "jq -e '.initial.wallet_mode == \"stubbed\"' artifacts/stage-6-smoke.json") {
+		t.Fatal("stage-6-e2e-smoke must assert stubbed wallet mode in smoke harness output")
+	}
+
+	if !strings.Contains(contents, "--emit-wallet-validation-checklist-file release-artifacts/manifest/wallet-validation-checklist.md \\") {
+		t.Fatal("stage-8-release-bundle must include emitted wallet validation checklist")
+	}
+}
+
 func mustReadFile(t *testing.T, path string) []byte {
 	t.Helper()
 

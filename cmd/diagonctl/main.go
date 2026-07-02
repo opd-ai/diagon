@@ -26,6 +26,7 @@ func main() {
 		depsOutPath    string
 		smokeOutPath   string
 		runbookOutPath string
+		walletOutPath  string
 		releaseOutPath string
 		probeLive      bool
 		probeTimeout   time.Duration
@@ -46,6 +47,7 @@ func main() {
 	flag.StringVar(&depsOutPath, "emit-debian-dependency-manifest-file", "", "optional output path for generated Debian dependency manifest bundle (use '-' for stdout)")
 	flag.StringVar(&smokeOutPath, "emit-release-smoke-file", "", "optional output path for generated Phase 4 release-candidate smoke plan (use '-' for stdout)")
 	flag.StringVar(&runbookOutPath, "emit-operator-runbook-file", "", "optional output path for generated operator runbook markdown (use '-' for stdout)")
+	flag.StringVar(&walletOutPath, "emit-wallet-validation-checklist-file", "", "optional output path for generated production wallet validation checklist markdown (use '-' for stdout)")
 	flag.StringVar(&releaseOutPath, "emit-release-baseline-file", "", "optional output path for generated release candidate baseline manifest (use '-' for stdout)")
 	flag.BoolVar(&probeLive, "probe-live", false, "actively probe service health/listen endpoints from service contract")
 	flag.DurationVar(&probeTimeout, "probe-timeout", 30*time.Second, "max time to wait for live service probes")
@@ -236,6 +238,24 @@ func main() {
 		}
 	}
 
+	trimmedWalletOut := strings.TrimSpace(walletOutPath)
+	if trimmedWalletOut != "" {
+		if bootstrapProfile == nil || loadedContract == nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-wallet-validation-checklist-file requires both bootstrap and service contract inputs"), &result)
+			os.Exit(2)
+		}
+
+		checklist, buildErr := profile.BuildWalletValidationChecklist(*bootstrapProfile, *loadedContract, integrationEnv)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteWalletValidationChecklist(trimmedWalletOut, checklist); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
 	trimmedReleaseOut := strings.TrimSpace(releaseOutPath)
 	if trimmedReleaseOut != "" {
 		if integrationMatrix == nil || trimmedMatrixEnv == "" {
@@ -291,6 +311,7 @@ func main() {
 			DebianDependencyFile   string                            `json:"debian_dependency_manifest_file,omitempty"`
 			ReleaseSmokeFile       string                            `json:"release_smoke_file,omitempty"`
 			OperatorRunbookFile    string                            `json:"operator_runbook_file,omitempty"`
+			WalletChecklistFile    string                            `json:"wallet_validation_checklist_file,omitempty"`
 			ReleaseBaselineFile    string                            `json:"release_baseline_file,omitempty"`
 			ProbeLive              bool                              `json:"probe_live"`
 			ProbeTimeout           string                            `json:"probe_timeout,omitempty"`
@@ -312,6 +333,7 @@ func main() {
 			DebianDependencyFile:   trimmedDepsOut,
 			ReleaseSmokeFile:       trimmedSmokeOut,
 			OperatorRunbookFile:    trimmedRunbookOut,
+			WalletChecklistFile:    trimmedWalletOut,
 			ReleaseBaselineFile:    trimmedReleaseOut,
 			ProbeLive:              probeLive,
 			AggregatedHealth:       aggregatedHealth,

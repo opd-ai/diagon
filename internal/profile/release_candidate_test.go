@@ -73,6 +73,39 @@ func TestBuildOperatorRunbookContainsOperationalSections(t *testing.T) {
 	}
 }
 
+func TestBuildWalletValidationChecklistContainsProductionChecks(t *testing.T) {
+	t.Parallel()
+
+	matrix, err := LoadIntegrationMatrix(filepath.Join("..", "..", ".github", "integration-matrix.json"))
+	if err != nil {
+		t.Fatalf("LoadIntegrationMatrix() returned error: %v", err)
+	}
+	environment, err := matrix.EnvironmentByName("debian-12")
+	if err != nil {
+		t.Fatalf("EnvironmentByName() returned error: %v", err)
+	}
+
+	checklist, err := BuildWalletValidationChecklist(loadBootstrapFixture(t), loadServiceContractFixture(t), &environment)
+	if err != nil {
+		t.Fatalf("BuildWalletValidationChecklist() returned error: %v", err)
+	}
+
+	for _, needle := range []string{
+		"# Diagon Production Wallet Validation Checklist",
+		"wallet_mode: stubbed",
+		"http://127.0.0.1:18089/json_rpc",
+		"curl -fsS -X POST http://127.0.0.1:18089/json_rpc",
+		"curl -fsS http://127.0.0.1:8081/healthz",
+		"PAYWALL_WALLET_RPC_USER",
+		"PAYWALL_WALLET_RPC_PASSWORD",
+		"## Success Criteria",
+	} {
+		if !strings.Contains(checklist, needle) {
+			t.Fatalf("expected wallet checklist to contain %q, got:\n%s", needle, checklist)
+		}
+	}
+}
+
 func TestBuildReleaseCandidateBaselineFromMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -114,5 +147,8 @@ func TestWriteReleaseCandidateArtifactsRejectEmptyPath(t *testing.T) {
 	}
 	if err := WriteReleaseCandidateBaseline("", ReleaseCandidateBaseline{}); err == nil {
 		t.Fatal("expected empty baseline output path to fail")
+	}
+	if err := WriteWalletValidationChecklist("", "checklist"); err == nil {
+		t.Fatal("expected empty wallet checklist output path to fail")
 	}
 }

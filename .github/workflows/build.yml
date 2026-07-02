@@ -540,6 +540,7 @@ jobs:
             --integration-environment "${{ matrix.environment }}" \
             --emit-release-smoke-file artifacts/stage-6-smoke-plan.json \
             --emit-operator-runbook-file artifacts/operator-runbook.md \
+            --emit-wallet-validation-checklist-file artifacts/wallet-validation-checklist.md \
             --format json > artifacts/stage-6-smoke-metadata.json
 
       - name: Execute transaction smoke harness
@@ -772,6 +773,11 @@ jobs:
 
           python3 .tmp/smoke_services.py
 
+      - name: Assert stubbed wallet mode for CI smoke
+        run: |
+          jq -e '.wallet_mode == "stubbed"' artifacts/stage-6-smoke-plan.json >/dev/null
+          jq -e '.initial.wallet_mode == "stubbed"' artifacts/stage-6-smoke.json >/dev/null
+
       - name: Upload smoke artifact
         uses: actions/upload-artifact@v4
         with:
@@ -781,6 +787,7 @@ jobs:
             artifacts/stage-6-smoke-plan.json
             artifacts/stage-6-smoke-metadata.json
             artifacts/operator-runbook.md
+            artifacts/wallet-validation-checklist.md
 
   stage-7-packaging-verification:
     name: Stage 7 - Packaging verification (${{ matrix.environment }})
@@ -911,6 +918,7 @@ jobs:
             --integration-environment "${{ matrix.environment }}" \
             --emit-release-baseline-file release-artifacts/manifest/version-manifest.json \
             --emit-operator-runbook-file release-artifacts/manifest/operator-runbook.md \
+            --emit-wallet-validation-checklist-file release-artifacts/manifest/wallet-validation-checklist.md \
             --format json > release-artifacts/manifest/release-metadata.json
 
       - name: Upload release bundle artifact
@@ -922,13 +930,14 @@ jobs:
             release-artifacts/manifest/SHA256SUMS
             release-artifacts/manifest/version-manifest.json
             release-artifacts/manifest/operator-runbook.md
+            release-artifacts/manifest/wallet-validation-checklist.md
             release-artifacts/manifest/release-metadata.json
 
       - name: Publish GitHub release assets
         if: github.event_name == 'release'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "release-artifacts/**/*.iso,release-artifacts/manifest/SHA256SUMS,release-artifacts/manifest/version-manifest.json,release-artifacts/manifest/operator-runbook.md"
+          artifacts: "release-artifacts/**/*.iso,release-artifacts/manifest/SHA256SUMS,release-artifacts/manifest/version-manifest.json,release-artifacts/manifest/operator-runbook.md,release-artifacts/manifest/wallet-validation-checklist.md"
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
           replacesArtifacts: true

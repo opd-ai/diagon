@@ -19,6 +19,7 @@ It validates:
 - Endpoint compatibility checks for Store -> Paywall API links
 - Optional live readiness probes for health endpoints, listeners, and dependency sequencing
 - Phase 4 release-candidate smoke plans, operator runbooks, and version-frozen release baseline manifests
+- Production wallet validation checklist generation for Monero RPC readiness handoff
 
 ### Policy file format
 
@@ -151,6 +152,23 @@ go run ./cmd/diagonctl \
 
 Use `--emit-operator-runbook-file -` to write the generated runbook to stdout.
 
+### Generate production wallet validation checklist
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--service-contract-file profiles/service-contract.json \
+	--integration-matrix-file .github/integration-matrix.json \
+	--integration-environment debian-12 \
+	--emit-wallet-validation-checklist-file /tmp/diagon-wallet-validation-checklist.md \
+	--format json
+```
+
+Use `--emit-wallet-validation-checklist-file -` to write the generated checklist to stdout.
+
 ### Generate release candidate baseline manifest
 
 ```bash
@@ -194,6 +212,7 @@ The Phase 4 release-candidate generators define:
 - A reusable smoke plan for service boot, marketplace access through the Store i2pd tunnel, direct Paywall settlement checks, and post-restart validation
 - An operator runbook with start, stop, status, log, smoke-validation, and recovery commands derived from the frozen bootstrap and service contract inputs
 - A release baseline manifest that freezes Debian/component versions, contract fixtures, and the recommended integration-baseline tag from `.github/integration-matrix.json`
+- A production wallet validation checklist that captures secrets preflight, Monero wallet RPC probes, and paywall settlement verification commands
 
 The service contract validator enforces:
 
@@ -249,9 +268,11 @@ Integration versions and contract fixtures are sourced from [.github/integration
 - Stage 4: integration bootstrap and live readiness probes (`--probe-live`), plus a timeout regression that proves readiness failures surface when a required service never becomes ready
 - Stage 5: contract tests for profile + matrix-defined service-contract fixture compatibility
 - Stage 6: generated smoke plan plus end-to-end smoke and graceful-restart validation with stubbed wallet mode
+- Stage 6: generated smoke plan plus end-to-end smoke and graceful-restart validation with stubbed wallet mode, including explicit `wallet_mode=stubbed` assertions
 - Stage 7: Debian packaging verification (`simple-cdd`, ISO build output checks)
 - Stage 7: Debian packaging verification on a pinned Debian container image, with dependency installability verified from an emitted dependency manifest plus ISO build output checks
 - Stage 8: checksum + version-frozen release baseline + operator runbook bundle, with release asset publishing on release events
+- Stage 8: checksum + version-frozen release baseline + operator runbook + production wallet validation checklist bundle, with release asset publishing on release events
 
 Quality gates are modeled as explicit jobs:
 
