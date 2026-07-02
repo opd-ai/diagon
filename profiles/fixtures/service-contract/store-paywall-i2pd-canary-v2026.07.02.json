@@ -1,0 +1,32 @@
+{
+  "services": [
+    {
+      "name": "i2pd",
+      "listen": "127.0.0.1:7070",
+      "health_url": "http://127.0.0.1:7070/health",
+      "depends_on": [],
+      "startup_order": 1
+    },
+    {
+      "name": "paywall",
+      "listen": "127.0.0.1:8081",
+      "health_url": "http://127.0.0.1:8081/healthz",
+      "depends_on": ["i2pd"],
+      "startup_order": 2
+    },
+    {
+      "name": "store",
+      "listen": "127.0.0.1:8080",
+      "health_url": "http://127.0.0.1:8080/healthz",
+      "depends_on": ["i2pd", "paywall"],
+      "startup_order": 3
+    }
+  ],
+  "api_links": [
+    {
+      "from": "store",
+      "to": "paywall",
+      "endpoint": "http://127.0.0.1:8081/api/v1/checkout"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "environments": [
+    {
+      "environment": "debian-12",
+      "debian_codename": "bookworm",
+      "go_version": "1.23",
+      "components": {
+        "diagon": {
+          "repo": "opd-ai/diagon",
+          "version": "main",
+          "build_input": "./cmd/diagonctl"
+        },
+        "store": {
+          "repo": "opd-ai/store",
+          "version": "v0.9.3",
+          "build_input": "github.com/opd-ai/store/cmd/store@v0.9.3"
+        },
+        "paywall": {
+          "repo": "opd-ai/paywall",
+          "version": "v0.7.1",
+          "build_input": "github.com/opd-ai/paywall/cmd/paywall@v0.7.1"
+        },
+        "i2pd": {
+          "repo": "purplei2p/i2pd",
+          "version": "2.54.0",
+          "build_input": "debian:bookworm/i2pd=2.54.0-1"
+        }
+      },
+      "contract_fixtures": {
+        "primary": "profiles/service-contract.json",
+        "service_contracts": [
+          "profiles/fixtures/service-contract/store-paywall-i2pd-v2026.07.02.json",
+          "profiles/fixtures/service-contract/store-paywall-i2pd-canary-v2026.07.02.json"
+        ]
+      }
+    }
+  ]
+}

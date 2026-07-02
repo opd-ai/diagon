@@ -11,20 +11,46 @@ permissions:
   contents: read
 
 jobs:
+  prepare-integration-matrix:
+    name: Prepare integration matrix
+    runs-on: ubuntu-latest
+    outputs:
+      ci_matrix: ${{ steps.matrix.outputs.ci_matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build CI matrix from integration matrix file
+        id: matrix
+        run: |
+          ci_matrix=$(jq -c '{include: [.environments[] | {
+            environment: .environment,
+            debian_codename: .debian_codename,
+            go_version: .go_version,
+            diagon_repo: .components.diagon.repo,
+            diagon_version: .components.diagon.version,
+            diagon_build_input: .components.diagon.build_input,
+            store_repo: .components.store.repo,
+            store_version: .components.store.version,
+            store_build_input: .components.store.build_input,
+            paywall_repo: .components.paywall.repo,
+            paywall_version: .components.paywall.version,
+            paywall_build_input: .components.paywall.build_input,
+            i2pd_repo: .components.i2pd.repo,
+            i2pd_version: .components.i2pd.version,
+            i2pd_build_input: .components.i2pd.build_input,
+            service_contract_primary: .contract_fixtures.primary,
+            service_contract_fixtures: .contract_fixtures.service_contracts
+          }]}' .github/integration-matrix.json)
+          echo "ci_matrix=$ci_matrix" >> "$GITHUB_OUTPUT"
+
   stage-1-static-checks:
     name: Stage 1 - Static checks (${{ matrix.environment }})
+    needs: prepare-integration-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - environment: debian-12
-            debian_codename: bookworm
-            go_version: '1.23'
-            diagon_version: local
-            store_version: contract-stub-v1
-            paywall_version: contract-stub-v1
-            i2pd_version: local-stub-v1
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,19 +78,13 @@ jobs:
 
   stage-2-build-artifacts:
     name: Stage 2 - Build artifacts (${{ matrix.environment }})
-    needs: stage-1-static-checks
+    needs:
+      - prepare-integration-matrix
+      - stage-1-static-checks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - environment: debian-12
-            debian_codename: bookworm
-            go_version: '1.23'
-            diagon_version: local
-            store_version: contract-stub-v1
-            paywall_version: contract-stub-v1
-            i2pd_version: local-stub-v1
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,23 +108,27 @@ jobs:
             "debian_codename": "${{ matrix.debian_codename }}",
             "components": {
               "diagon": {
-                "repo": "opd-ai/diagon",
+                "repo": "${{ matrix.diagon_repo }}",
                 "version": "${{ matrix.diagon_version }}",
+                "build_input": "${{ matrix.diagon_build_input }}",
                 "artifact": "artifacts/bin/diagonctl"
               },
               "store": {
-                "repo": "external/store",
+                "repo": "${{ matrix.store_repo }}",
                 "version": "${{ matrix.store_version }}",
+                "build_input": "${{ matrix.store_build_input }}",
                 "artifact": "external-managed"
               },
               "paywall": {
-                "repo": "external/paywall",
+                "repo": "${{ matrix.paywall_repo }}",
                 "version": "${{ matrix.paywall_version }}",
+                "build_input": "${{ matrix.paywall_build_input }}",
                 "artifact": "external-managed"
               },
               "i2pd": {
-                "repo": "debian/i2pd",
+                "repo": "${{ matrix.i2pd_repo }}",
                 "version": "${{ matrix.i2pd_version }}",
+                "build_input": "${{ matrix.i2pd_build_input }}",
                 "artifact": "debian-package"
               }
             }
@@ -121,14 +145,13 @@ jobs:
 
   stage-3-unit-tests:
     name: Stage 3 - Unit tests (${{ matrix.environment }})
-    needs: stage-2-build-artifacts
+    needs:
+      - prepare-integration-matrix
+      - stage-2-build-artifacts
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - environment: debian-12
-            go_version: '1.23'
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -143,14 +166,13 @@ jobs:
 
   stage-4-integration-bootstrap:
     name: Stage 4 - Integration bootstrap (${{ matrix.environment }})
-    needs: stage-3-unit-tests
+    needs:
+      - prepare-integration-matrix
+      - stage-3-unit-tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - environment: debian-12
-            go_version: '1.23'
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -206,7 +228,7 @@ jobs:
             --profile-dir profiles \
             --profile-name myprofile \
             --policy-file profiles/validation-policy.json \
-            --service-contract-file profiles/service-contract.json \
+            --service-contract-file "${{ matrix.service_contract_primary }}" \
             --probe-live \
             --probe-timeout 45s \
             --probe-interval 250ms \
@@ -235,14 +257,13 @@ jobs:
 
   stage-5-contract-tests:
     name: Stage 5 - Contract tests (${{ matrix.environment }})
-    needs: stage-4-integration-bootstrap
+    needs:
+      - prepare-integration-matrix
+      - stage-4-integration-bootstrap
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - environment: debian-12
-            go_version: '1.23'
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -252,30 +273,35 @@ jobs:
         with:
           go-version: ${{ matrix.go_version }}
 
-      - name: Validate profile and service contracts
+      - name: Validate profile and matrix service contract fixtures
         run: |
-          go run ./cmd/diagonctl \
-            --profile-dir profiles \
-            --profile-name myprofile \
-            --policy-file profiles/validation-policy.json \
-            --service-contract-file profiles/service-contract.json \
-            --format json | tee contract-validation.json
+          mkdir -p artifacts/contract-tests
+          mapfile -t fixtures < <(echo '${{ toJson(matrix.service_contract_fixtures) }}' | jq -r '.[]')
+          for fixture in "${fixtures[@]}"; do
+            name=$(basename "$fixture" .json)
+            go run ./cmd/diagonctl \
+              --profile-dir profiles \
+              --profile-name myprofile \
+              --policy-file profiles/validation-policy.json \
+              --service-contract-file "$fixture" \
+              --format json | tee "artifacts/contract-tests/${name}.json"
+          done
 
       - name: Upload contract validation result
         uses: actions/upload-artifact@v4
         with:
           name: stage-5-contract-${{ matrix.environment }}
-          path: contract-validation.json
+          path: artifacts/contract-tests/*.json
 
   stage-6-e2e-smoke:
     name: Stage 6 - End-to-end smoke (${{ matrix.environment }})
-    needs: stage-5-contract-tests
+    needs:
+      - prepare-integration-matrix
+      - stage-5-contract-tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - environment: debian-12
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
       - name: Execute transaction smoke harness
         run: |
@@ -362,14 +388,13 @@ jobs:
 
   stage-7-packaging-verification:
     name: Stage 7 - Packaging verification (${{ matrix.environment }})
-    needs: stage-6-e2e-smoke
+    needs:
+      - prepare-integration-matrix
+      - stage-6-e2e-smoke
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - environment: debian-12
-            debian_codename: bookworm
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
       - name: Verify Debian build toolchain installability
         run: |
@@ -405,20 +430,16 @@ jobs:
 
   stage-8-release-bundle:
     name: Stage 8 - Signing and release bundle (${{ matrix.environment }})
-    needs: stage-7-packaging-verification
+    needs:
+      - prepare-integration-matrix
+      - stage-7-packaging-verification
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - environment: debian-12
-            debian_codename: bookworm
-            store_version: contract-stub-v1
-            paywall_version: contract-stub-v1
-            i2pd_version: local-stub-v1
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
       - name: Download packaging artifacts
         uses: actions/download-artifact@v4
@@ -435,7 +456,7 @@ jobs:
             "environment": "${{ matrix.environment }}",
             "debian_codename": "${{ matrix.debian_codename }}",
             "components": {
-              "diagon": "${{ github.sha }}",
+              "diagon": "${{ matrix.diagon_version }}",
               "store": "${{ matrix.store_version }}",
               "paywall": "${{ matrix.paywall_version }}",
               "i2pd": "${{ matrix.i2pd_version }}"
