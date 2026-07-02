@@ -14,18 +14,23 @@ import (
 
 func main() {
 	var (
-		profileDir    string
-		profileName   string
-		policyPath    string
-		contractPath  string
-		bootstrapPath string
-		configOutPath string
-		debianOutPath string
-		probeLive     bool
-		probeTimeout  time.Duration
-		probeEvery    time.Duration
-		strict        bool
-		outputFmt     string
+		profileDir     string
+		profileName    string
+		policyPath     string
+		contractPath   string
+		bootstrapPath  string
+		matrixPath     string
+		matrixEnv      string
+		configOutPath  string
+		debianOutPath  string
+		smokeOutPath   string
+		runbookOutPath string
+		releaseOutPath string
+		probeLive      bool
+		probeTimeout   time.Duration
+		probeEvery     time.Duration
+		strict         bool
+		outputFmt      string
 	)
 
 	flag.StringVar(&profileDir, "profile-dir", "profiles", "directory containing profile files")
@@ -33,8 +38,13 @@ func main() {
 	flag.StringVar(&policyPath, "policy-file", "", "optional JSON policy file for required packages and preseed keys")
 	flag.StringVar(&contractPath, "service-contract-file", "", "optional JSON service integration contract file for Store/Paywall/i2pd checks")
 	flag.StringVar(&bootstrapPath, "bootstrap-profile-file", "", "optional JSON local bootstrap profile for single-host startup defaults and secrets")
+	flag.StringVar(&matrixPath, "integration-matrix-file", "", "optional JSON integration matrix used for release candidate version freezing")
+	flag.StringVar(&matrixEnv, "integration-environment", "", "integration matrix environment name for release candidate version freezing")
 	flag.StringVar(&configOutPath, "emit-config-injection-file", "", "optional output path for generated Store/Paywall/i2pd injected config bundle (use '-' for stdout)")
 	flag.StringVar(&debianOutPath, "emit-debian-package-file", "", "optional output path for generated Debian package baseline bundle (use '-' for stdout)")
+	flag.StringVar(&smokeOutPath, "emit-release-smoke-file", "", "optional output path for generated Phase 4 release-candidate smoke plan (use '-' for stdout)")
+	flag.StringVar(&runbookOutPath, "emit-operator-runbook-file", "", "optional output path for generated operator runbook markdown (use '-' for stdout)")
+	flag.StringVar(&releaseOutPath, "emit-release-baseline-file", "", "optional output path for generated release candidate baseline manifest (use '-' for stdout)")
 	flag.BoolVar(&probeLive, "probe-live", false, "actively probe service health/listen endpoints from service contract")
 	flag.DurationVar(&probeTimeout, "probe-timeout", 30*time.Second, "max time to wait for live service probes")
 	flag.DurationVar(&probeEvery, "probe-interval", 500*time.Millisecond, "retry interval for live service probes")
@@ -62,6 +72,8 @@ func main() {
 
 	var (
 		bootstrapProfile     *profile.BootstrapProfile
+		integrationMatrix    *profile.IntegrationMatrix
+		integrationEnv       *profile.IntegrationEnvironment
 		resolvedContractPath string
 		loadedContract       *profile.ServiceContract
 		aggregatedHealth     *profile.ServiceHealthAggregation
@@ -80,6 +92,28 @@ func main() {
 		}
 	} else {
 		resolvedContractPath = strings.TrimSpace(contractPath)
+	}
+
+	trimmedMatrixPath := strings.TrimSpace(matrixPath)
+	trimmedMatrixEnv := strings.TrimSpace(matrixEnv)
+	if trimmedMatrixPath != "" {
+		matrix, loadErr := profile.LoadIntegrationMatrix(trimmedMatrixPath)
+		if loadErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", loadErr), nil)
+			os.Exit(2)
+		}
+		integrationMatrix = &matrix
+		if trimmedMatrixEnv != "" {
+			env, envErr := matrix.EnvironmentByName(trimmedMatrixEnv)
+			if envErr != nil {
+				emitFailure(outputFmt, fmt.Errorf("validation error: %w", envErr), nil)
+				os.Exit(2)
+			}
+			integrationEnv = &env
+		}
+	} else if trimmedMatrixEnv != "" {
+		emitFailure(outputFmt, fmt.Errorf("validation error: --integration-environment requires --integration-matrix-file"), nil)
+		os.Exit(2)
 	}
 
 	if probeLive && resolvedContractPath == "" {
@@ -164,6 +198,60 @@ func main() {
 		}
 	}
 
+	trimmedSmokeOut := strings.TrimSpace(smokeOutPath)
+	if trimmedSmokeOut != "" {
+		if bootstrapProfile == nil || loadedContract == nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-release-smoke-file requires both bootstrap and service contract inputs"), &result)
+			os.Exit(2)
+		}
+
+		plan, buildErr := profile.BuildReleaseCandidateSmokePlan(*bootstrapProfile, *loadedContract)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteReleaseCandidateSmokePlan(trimmedSmokeOut, plan); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
+	trimmedRunbookOut := strings.TrimSpace(runbookOutPath)
+	if trimmedRunbookOut != "" {
+		if bootstrapProfile == nil || loadedContract == nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-operator-runbook-file requires both bootstrap and service contract inputs"), &result)
+			os.Exit(2)
+		}
+
+		runbook, buildErr := profile.BuildOperatorRunbook(*bootstrapProfile, *loadedContract, integrationEnv)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteOperatorRunbook(trimmedRunbookOut, runbook); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
+	trimmedReleaseOut := strings.TrimSpace(releaseOutPath)
+	if trimmedReleaseOut != "" {
+		if integrationMatrix == nil || trimmedMatrixEnv == "" {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-release-baseline-file requires both --integration-matrix-file and --integration-environment"), &result)
+			os.Exit(2)
+		}
+
+		baseline, buildErr := profile.BuildReleaseCandidateBaseline(*integrationMatrix, trimmedMatrixEnv)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteReleaseCandidateBaseline(trimmedReleaseOut, baseline); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
 	if strings.EqualFold(outputFmt, "json") {
 		status := "ok"
 		if result.HasErrors() || (strict && len(result.Warnings) > 0) {
@@ -171,33 +259,43 @@ func main() {
 		}
 
 		payload := struct {
-			Status               string                            `json:"status"`
-			ProfileDir           string                            `json:"profile_dir"`
-			ProfileName          string                            `json:"profile_name"`
-			BootstrapProfileFile string                            `json:"bootstrap_profile_file,omitempty"`
-			ServiceContractFile  string                            `json:"service_contract_file,omitempty"`
-			ConfigInjectionFile  string                            `json:"config_injection_file,omitempty"`
-			DebianPackageFile    string                            `json:"debian_package_file,omitempty"`
-			ProbeLive            bool                              `json:"probe_live"`
-			ProbeTimeout         string                            `json:"probe_timeout,omitempty"`
-			ProbeInterval        string                            `json:"probe_interval,omitempty"`
-			AggregatedHealth     *profile.ServiceHealthAggregation `json:"aggregated_health,omitempty"`
-			Strict               bool                              `json:"strict"`
-			Errors               []string                          `json:"errors"`
-			Warnings             []string                          `json:"warnings"`
+			Status                 string                            `json:"status"`
+			ProfileDir             string                            `json:"profile_dir"`
+			ProfileName            string                            `json:"profile_name"`
+			BootstrapProfileFile   string                            `json:"bootstrap_profile_file,omitempty"`
+			ServiceContractFile    string                            `json:"service_contract_file,omitempty"`
+			IntegrationMatrixFile  string                            `json:"integration_matrix_file,omitempty"`
+			IntegrationEnvironment string                            `json:"integration_environment,omitempty"`
+			ConfigInjectionFile    string                            `json:"config_injection_file,omitempty"`
+			DebianPackageFile      string                            `json:"debian_package_file,omitempty"`
+			ReleaseSmokeFile       string                            `json:"release_smoke_file,omitempty"`
+			OperatorRunbookFile    string                            `json:"operator_runbook_file,omitempty"`
+			ReleaseBaselineFile    string                            `json:"release_baseline_file,omitempty"`
+			ProbeLive              bool                              `json:"probe_live"`
+			ProbeTimeout           string                            `json:"probe_timeout,omitempty"`
+			ProbeInterval          string                            `json:"probe_interval,omitempty"`
+			AggregatedHealth       *profile.ServiceHealthAggregation `json:"aggregated_health,omitempty"`
+			Strict                 bool                              `json:"strict"`
+			Errors                 []string                          `json:"errors"`
+			Warnings               []string                          `json:"warnings"`
 		}{
-			Status:               status,
-			ProfileDir:           profileDir,
-			ProfileName:          profileName,
-			BootstrapProfileFile: strings.TrimSpace(bootstrapPath),
-			ServiceContractFile:  resolvedContractPath,
-			ConfigInjectionFile:  trimmedConfigOut,
-			DebianPackageFile:    trimmedDebianOut,
-			ProbeLive:            probeLive,
-			AggregatedHealth:     aggregatedHealth,
-			Strict:               strict,
-			Errors:               result.Errors,
-			Warnings:             result.Warnings,
+			Status:                 status,
+			ProfileDir:             profileDir,
+			ProfileName:            profileName,
+			BootstrapProfileFile:   strings.TrimSpace(bootstrapPath),
+			ServiceContractFile:    resolvedContractPath,
+			IntegrationMatrixFile:  trimmedMatrixPath,
+			IntegrationEnvironment: trimmedMatrixEnv,
+			ConfigInjectionFile:    trimmedConfigOut,
+			DebianPackageFile:      trimmedDebianOut,
+			ReleaseSmokeFile:       trimmedSmokeOut,
+			OperatorRunbookFile:    trimmedRunbookOut,
+			ReleaseBaselineFile:    trimmedReleaseOut,
+			ProbeLive:              probeLive,
+			AggregatedHealth:       aggregatedHealth,
+			Strict:                 strict,
+			Errors:                 result.Errors,
+			Warnings:               result.Warnings,
 		}
 		if probeLive {
 			payload.ProbeTimeout = probeTimeout.String()

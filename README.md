@@ -18,6 +18,7 @@ It validates:
 - i2pd tunnel contract entries including tunnel type and local listener-to-service target mappings
 - Endpoint compatibility checks for Store -> Paywall API links
 - Optional live readiness probes for health endpoints, listeners, and dependency sequencing
+- Phase 4 release-candidate smoke plans, operator runbooks, and version-frozen release baseline manifests
 
 ### Policy file format
 
@@ -118,6 +119,53 @@ go run ./cmd/diagonctl \
 
 Use `--emit-debian-package-file -` to write the generated packaging baseline to stdout.
 
+### Generate Phase 4 release-candidate smoke plan
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--service-contract-file profiles/service-contract.json \
+	--emit-release-smoke-file /tmp/diagon-release-smoke.json \
+	--format json
+```
+
+Use `--emit-release-smoke-file -` to write the generated smoke plan to stdout.
+
+### Generate operator runbook
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--service-contract-file profiles/service-contract.json \
+	--integration-matrix-file .github/integration-matrix.json \
+	--integration-environment debian-12 \
+	--emit-operator-runbook-file /tmp/diagon-operator-runbook.md \
+	--format json
+```
+
+Use `--emit-operator-runbook-file -` to write the generated runbook to stdout.
+
+### Generate release candidate baseline manifest
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--integration-matrix-file .github/integration-matrix.json \
+	--integration-environment debian-12 \
+	--emit-release-baseline-file /tmp/diagon-release-baseline.json \
+	--format json
+```
+
+Use `--emit-release-baseline-file -` to write the generated release baseline to stdout.
+
 The Debian package baseline generator defines:
 
 - Package layout expectations for binaries, configs, logs, state, and runtime directories
@@ -125,6 +173,12 @@ The Debian package baseline generator defines:
 - Startup dependencies derived from the service contract (`i2pd` before `paywall`, `paywall` before `store`)
 - Post-install validation checks for unit enablement, config-file presence, and local health endpoints
 - Uninstall and rollback expectations that stop services in reverse order, preserve `/etc/diagon`, `/var/lib/diagon`, and `/var/log/diagon`, and remove only `/run/diagon`
+
+The Phase 4 release-candidate generators define:
+
+- A reusable smoke plan for service boot, marketplace access through the Store i2pd tunnel, direct Paywall settlement checks, and post-restart validation
+- An operator runbook with start, stop, status, log, smoke-validation, and recovery commands derived from the frozen bootstrap and service contract inputs
+- A release baseline manifest that freezes Debian/component versions, contract fixtures, and the recommended integration-baseline tag from `.github/integration-matrix.json`
 
 The service contract validator enforces:
 
@@ -178,9 +232,9 @@ Integration versions and contract fixtures are sourced from [.github/integration
 - Stage 3: unit tests (`go test ./...`)
 - Stage 4: integration bootstrap and live readiness probes (`--probe-live`)
 - Stage 5: contract tests for profile + matrix-defined service-contract fixture compatibility
-- Stage 6: end-to-end smoke transaction harness with stubbed wallet mode
+- Stage 6: generated smoke plan plus end-to-end smoke and graceful-restart validation with stubbed wallet mode
 - Stage 7: Debian packaging verification (`simple-cdd`, ISO build output checks)
-- Stage 8: checksum + version manifest bundle, with release asset publishing on release events
+- Stage 8: checksum + version-frozen release baseline + operator runbook bundle, with release asset publishing on release events
 
 Quality gates are modeled as explicit jobs:
 

@@ -1,43 +1,11 @@
 package profile
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 )
-
-type integrationMatrix struct {
-	Environments []integrationEnvironment `json:"environments"`
-}
-
-type integrationEnvironment struct {
-	Environment         string                      `json:"environment"`
-	DebianVersion       string                      `json:"debian_version"`
-	DebianCodename      string                      `json:"debian_codename"`
-	PackageDependencies []string                    `json:"package_dependencies"`
-	Components          integrationMatrixComponents `json:"components"`
-	ContractFixtures    integrationContractFixtures `json:"contract_fixtures"`
-}
-
-type integrationMatrixComponents struct {
-	Diagon  integrationMatrixComponent `json:"diagon"`
-	Store   integrationMatrixComponent `json:"store"`
-	Paywall integrationMatrixComponent `json:"paywall"`
-	I2PD    integrationMatrixComponent `json:"i2pd"`
-}
-
-type integrationMatrixComponent struct {
-	Repo       string `json:"repo"`
-	Version    string `json:"version"`
-	BuildInput string `json:"build_input"`
-}
-
-type integrationContractFixtures struct {
-	Primary          string   `json:"primary"`
-	ServiceContracts []string `json:"service_contracts"`
-}
 
 func TestIntegrationMatrixServiceContractFixturesAreValid(t *testing.T) {
 	t.Parallel()
@@ -45,14 +13,9 @@ func TestIntegrationMatrixServiceContractFixturesAreValid(t *testing.T) {
 	repoRoot := mustRepoRoot(t)
 	matrixPath := filepath.Join(repoRoot, ".github", "integration-matrix.json")
 
-	raw, err := os.ReadFile(matrixPath)
+	matrix, err := LoadIntegrationMatrix(matrixPath)
 	if err != nil {
-		t.Fatalf("read integration matrix: %v", err)
-	}
-
-	var matrix integrationMatrix
-	if err := json.Unmarshal(raw, &matrix); err != nil {
-		t.Fatalf("parse integration matrix: %v", err)
+		t.Fatalf("LoadIntegrationMatrix() returned error: %v", err)
 	}
 
 	if len(matrix.Environments) == 0 {
@@ -79,7 +42,7 @@ func TestIntegrationMatrixServiceContractFixturesAreValid(t *testing.T) {
 			t.Fatalf("environment[%d] package_dependencies must include debian-archive-keyring", envIdx)
 		}
 
-		for name, component := range map[string]integrationMatrixComponent{
+		for name, component := range map[string]IntegrationMatrixComponent{
 			"diagon":  env.Components.Diagon,
 			"store":   env.Components.Store,
 			"paywall": env.Components.Paywall,

@@ -59,9 +59,9 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] Define uninstall/rollback expectations that preserve user data and cleanly stop services. Owner: Diagon
 
 ### Phase 4: Release Candidate Readiness
-- [ ] Run end-to-end smoke flow: service boot, marketplace access path, paywall validation, graceful restart. Owner: TBD
-- [ ] Produce operator runbook with start, stop, status, logs, and recovery steps. Owner: TBD
-- [ ] Freeze release candidate versions and tag integration baseline. Owner: TBD
+- [x] Run end-to-end smoke flow: service boot, marketplace access path, paywall validation, graceful restart. Owner: Diagon
+- [x] Produce operator runbook with start, stop, status, logs, and recovery steps. Owner: Diagon
+- [x] Freeze release candidate versions and tag integration baseline. Owner: Diagon
 
 ## 5. CI Build and Validation Plan (checklist)
 - [ ] Stage 1: Static checks run for all repos in matrix (lint/type/style) and fail fast on any violation. Owner: TBD
@@ -100,3 +100,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Completed Phase 1 local single-host bootstrap by adding `profiles/local-single-host-bootstrap.json`, validating deterministic startup/default local wiring and secret-only operator inputs in `diagonctl`, and extending live probes/CI Stage 4 to verify i2pd tunnel listener reachability plus Store/Paywall readiness under stubbed local bootstrap defaults. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 2 Diagon integration wiring by adding generated config injection bundles for Store/Paywall/i2pd (`--emit-config-injection-file`), implementing explicit aggregated component health gating for runtime readiness checks, and adding integration tests for Store->Paywall local endpoint calls plus i2pd-routed traffic path validation. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 3 Debian service and packaging baseline by adding generated Debian package bundles in `diagonctl` (`--emit-debian-package-file`) covering package layout, systemd unit ordering/restart policy, post-install validation checks, and uninstall/rollback preservation semantics, with focused tests for the emitted plan. Owner: Diagon
+- [x] 2026-07-02: Completed Phase 4 release candidate readiness by adding generated smoke-flow plans (`--emit-release-smoke-file`) and operator runbooks (`--emit-operator-runbook-file`) in `diagonctl`, wiring CI Stage 6 to validate service boot, marketplace access, paywall settlement, and graceful restart from the emitted plan, and generating a version-frozen release baseline manifest (`--emit-release-baseline-file`) plus runbook in Stage 8 for integration-baseline tagging and release bundles. Owner: Diagon
