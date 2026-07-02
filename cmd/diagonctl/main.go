@@ -23,6 +23,7 @@ func main() {
 		matrixEnv      string
 		configOutPath  string
 		debianOutPath  string
+		depsOutPath    string
 		smokeOutPath   string
 		runbookOutPath string
 		releaseOutPath string
@@ -42,6 +43,7 @@ func main() {
 	flag.StringVar(&matrixEnv, "integration-environment", "", "integration matrix environment name for release candidate version freezing")
 	flag.StringVar(&configOutPath, "emit-config-injection-file", "", "optional output path for generated Store/Paywall/i2pd injected config bundle (use '-' for stdout)")
 	flag.StringVar(&debianOutPath, "emit-debian-package-file", "", "optional output path for generated Debian package baseline bundle (use '-' for stdout)")
+	flag.StringVar(&depsOutPath, "emit-debian-dependency-manifest-file", "", "optional output path for generated Debian dependency manifest bundle (use '-' for stdout)")
 	flag.StringVar(&smokeOutPath, "emit-release-smoke-file", "", "optional output path for generated Phase 4 release-candidate smoke plan (use '-' for stdout)")
 	flag.StringVar(&runbookOutPath, "emit-operator-runbook-file", "", "optional output path for generated operator runbook markdown (use '-' for stdout)")
 	flag.StringVar(&releaseOutPath, "emit-release-baseline-file", "", "optional output path for generated release candidate baseline manifest (use '-' for stdout)")
@@ -252,6 +254,24 @@ func main() {
 		}
 	}
 
+	trimmedDepsOut := strings.TrimSpace(depsOutPath)
+	if trimmedDepsOut != "" {
+		if integrationMatrix == nil || trimmedMatrixEnv == "" {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-debian-dependency-manifest-file requires both --integration-matrix-file and --integration-environment"), &result)
+			os.Exit(2)
+		}
+
+		manifest, buildErr := profile.BuildDebianDependencyManifest(*integrationMatrix, trimmedMatrixEnv)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteDebianDependencyManifest(trimmedDepsOut, manifest); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
 	if strings.EqualFold(outputFmt, "json") {
 		status := "ok"
 		if result.HasErrors() || (strict && len(result.Warnings) > 0) {
@@ -268,6 +288,7 @@ func main() {
 			IntegrationEnvironment string                            `json:"integration_environment,omitempty"`
 			ConfigInjectionFile    string                            `json:"config_injection_file,omitempty"`
 			DebianPackageFile      string                            `json:"debian_package_file,omitempty"`
+			DebianDependencyFile   string                            `json:"debian_dependency_manifest_file,omitempty"`
 			ReleaseSmokeFile       string                            `json:"release_smoke_file,omitempty"`
 			OperatorRunbookFile    string                            `json:"operator_runbook_file,omitempty"`
 			ReleaseBaselineFile    string                            `json:"release_baseline_file,omitempty"`
@@ -288,6 +309,7 @@ func main() {
 			IntegrationEnvironment: trimmedMatrixEnv,
 			ConfigInjectionFile:    trimmedConfigOut,
 			DebianPackageFile:      trimmedDebianOut,
+			DebianDependencyFile:   trimmedDepsOut,
 			ReleaseSmokeFile:       trimmedSmokeOut,
 			OperatorRunbookFile:    trimmedRunbookOut,
 			ReleaseBaselineFile:    trimmedReleaseOut,

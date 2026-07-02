@@ -788,22 +788,65 @@ jobs:
       - prepare-integration-matrix
       - stage-6-e2e-smoke
     runs-on: ubuntu-latest
+    container:
+      image: debian:${{ matrix.debian_codename }}
     strategy:
       fail-fast: true
       matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
     steps:
+      - name: Install CI base tooling
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates curl git gnupg jq
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Emit Debian dependency manifest
+        run: |
+          mkdir -p artifacts
+          go run ./cmd/diagonctl \
+            --profile-dir profiles \
+            --profile-name myprofile \
+            --policy-file profiles/validation-policy.json \
+            --integration-matrix-file .github/integration-matrix.json \
+            --integration-environment "${{ matrix.environment }}" \
+            --emit-debian-dependency-manifest-file artifacts/debian-dependency-manifest.json \
+            --format json > artifacts/stage-7-dependency-metadata.json
+
       - name: Verify Debian build toolchain installability
         run: |
-          sudo apt-get update
-          mapfile -t deps < <(echo '${{ toJson(matrix.package_dependencies) }}' | jq -r '.[]')
-          sudo apt-get install -y "${deps[@]}"
-          dpkg -s simple-cdd >/dev/null
+          manifest=artifacts/debian-dependency-manifest.json
+          expected_codename=$(jq -r '.debian_codename' "$manifest")
+          if [[ "$expected_codename" != "${{ matrix.debian_codename }}" ]]; then
+            echo "dependency manifest codename mismatch: expected ${{ matrix.debian_codename }}, got ${expected_codename}"
+            exit 1
+          fi
+
+          mapfile -t deps < <(jq -r '.package_dependencies[].name' "$manifest")
+          if [[ "${#deps[@]}" -eq 0 ]]; then
+            echo "dependency manifest contains no package dependencies"
+            exit 1
+          fi
+
+          apt-get install -y "${deps[@]}"
+
+          for dep in "${deps[@]}"; do
+            dpkg-query -W -f='${Status} ${Version}\n' "$dep" | grep -q '^install ok installed '
+          done
+
+          jq -e '.component_package_constraints[] | select(.component == "i2pd") | .codename == "${{ matrix.debian_codename }}"' "$manifest" >/dev/null
 
       - name: Import Debian archive keys (best effort)
         run: |
           gpg --keyserver keyserver.ubuntu.com --recv-keys B8E5F13176D2A7A75220028078DBA3BC47EF2265 || true
           gpg --keyserver keyserver.ubuntu.com --recv-keys B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 || true
-          gpg --export B8E5F13176D2A7A75220028078DBA3BC47EF2265 B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 | sudo tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null || true
+          gpg --export B8E5F13176D2A7A75220028078DBA3BC47EF2265 B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 | tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null || true
 
       - name: Build Debian installer ISO
         run: |
@@ -822,6 +865,8 @@ jobs:
         with:
           name: stage-7-packaging-${{ matrix.environment }}
           path: |
+            artifacts/debian-dependency-manifest.json
+            artifacts/stage-7-dependency-metadata.json
             build/iso-list.txt
             build/images/*.iso
 

@@ -77,7 +77,7 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 ## 6. Risks and Mitigations
 - [x] Risk: i2pd tunnel instability or startup race conditions. Mitigation: enforce service ordering, retry/backoff, and readiness timeout tests in CI. Owner: Diagon
 - [x] Risk: interface drift between Store and Paywall. Mitigation: contract freeze plus CI contract tests on every change. Owner: Diagon
-- [ ] Risk: Debian dependency mismatch across environments. Mitigation: pin supported Debian base and maintain a tested dependency manifest. Owner: TBD
+- [x] Risk: Debian dependency mismatch across environments. Mitigation: pin supported Debian base and maintain a tested dependency manifest. Owner: Diagon
 - [ ] Risk: Monero RPC availability or wallet config issues. Mitigation: provide stubbed test mode in CI and separate production wallet validation checklist. Owner: TBD
 - [ ] Risk: operational complexity for non-expert users. Mitigation: single profile bootstrap, deterministic defaults, and operator runbook. Owner: TBD
 - [ ] Fallback option: if full packaging slips, ship a CI-validated compose/service bundle for Debian with documented manual install steps as interim deliverable. Owner: TBD
@@ -104,3 +104,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Completed CI Stages 1-3 by resolving every pinned matrix repo ref during static checks, running `gofmt`/`go vet` across Diagon plus pinned Store/Paywall checkouts, building Diagon/Store/Paywall artifacts inside a Debian Bookworm Go container, and enforcing readonly unit-test execution with lockfile cleanliness checks for each Go component. Owner: Diagon
 - [x] 2026-07-02: Mitigated startup-race risk for i2pd/store/paywall probes by adding capped retry backoff to runtime readiness checks, adding focused tests for probe retry pacing, and extending CI Stage 4 with a readiness-timeout regression that must fail when Paywall never becomes ready. Owner: Diagon
 - [x] 2026-07-02: Mitigated Store/Paywall interface-drift risk by forcing CI Stage 5 to validate the primary service contract plus all matrix fixtures on every push/pull request change, and by adding regression tests that fail if contract-test gating or fixture coverage is weakened. Owner: Diagon
+- [x] 2026-07-02: Mitigated Debian dependency-mismatch risk by adding `diagonctl --emit-debian-dependency-manifest-file` to generate a matrix-derived dependency manifest, pinning CI Stage 7 to a Debian codename-specific container, and enforcing manifest-driven package installation and codename constraints with regression tests. Owner: Diagon

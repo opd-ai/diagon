@@ -166,6 +166,21 @@ go run ./cmd/diagonctl \
 
 Use `--emit-release-baseline-file -` to write the generated release baseline to stdout.
 
+### Generate Debian dependency manifest (risk mitigation)
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--integration-matrix-file .github/integration-matrix.json \
+	--integration-environment debian-12 \
+	--emit-debian-dependency-manifest-file /tmp/diagon-debian-dependencies.json \
+	--format json
+```
+
+Use `--emit-debian-dependency-manifest-file -` to write the generated dependency manifest to stdout.
+
 The Debian package baseline generator defines:
 
 - Package layout expectations for binaries, configs, logs, state, and runtime directories
@@ -235,6 +250,7 @@ Integration versions and contract fixtures are sourced from [.github/integration
 - Stage 5: contract tests for profile + matrix-defined service-contract fixture compatibility
 - Stage 6: generated smoke plan plus end-to-end smoke and graceful-restart validation with stubbed wallet mode
 - Stage 7: Debian packaging verification (`simple-cdd`, ISO build output checks)
+- Stage 7: Debian packaging verification on a pinned Debian container image, with dependency installability verified from an emitted dependency manifest plus ISO build output checks
 - Stage 8: checksum + version-frozen release baseline + operator runbook bundle, with release asset publishing on release events
 
 Quality gates are modeled as explicit jobs:
