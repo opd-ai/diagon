@@ -76,7 +76,7 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 
 ## 6. Risks and Mitigations
 - [x] Risk: i2pd tunnel instability or startup race conditions. Mitigation: enforce service ordering, retry/backoff, and readiness timeout tests in CI. Owner: Diagon
-- [ ] Risk: interface drift between Store and Paywall. Mitigation: contract freeze plus CI contract tests on every change. Owner: TBD
+- [x] Risk: interface drift between Store and Paywall. Mitigation: contract freeze plus CI contract tests on every change. Owner: Diagon
 - [ ] Risk: Debian dependency mismatch across environments. Mitigation: pin supported Debian base and maintain a tested dependency manifest. Owner: TBD
 - [ ] Risk: Monero RPC availability or wallet config issues. Mitigation: provide stubbed test mode in CI and separate production wallet validation checklist. Owner: TBD
 - [ ] Risk: operational complexity for non-expert users. Mitigation: single profile bootstrap, deterministic defaults, and operator runbook. Owner: TBD
@@ -103,3 +103,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Completed Phase 4 release candidate readiness by adding generated smoke-flow plans (`--emit-release-smoke-file`) and operator runbooks (`--emit-operator-runbook-file`) in `diagonctl`, wiring CI Stage 6 to validate service boot, marketplace access, paywall settlement, and graceful restart from the emitted plan, and generating a version-frozen release baseline manifest (`--emit-release-baseline-file`) plus runbook in Stage 8 for integration-baseline tagging and release bundles. Owner: Diagon
 - [x] 2026-07-02: Completed CI Stages 1-3 by resolving every pinned matrix repo ref during static checks, running `gofmt`/`go vet` across Diagon plus pinned Store/Paywall checkouts, building Diagon/Store/Paywall artifacts inside a Debian Bookworm Go container, and enforcing readonly unit-test execution with lockfile cleanliness checks for each Go component. Owner: Diagon
 - [x] 2026-07-02: Mitigated startup-race risk for i2pd/store/paywall probes by adding capped retry backoff to runtime readiness checks, adding focused tests for probe retry pacing, and extending CI Stage 4 with a readiness-timeout regression that must fail when Paywall never becomes ready. Owner: Diagon
+- [x] 2026-07-02: Mitigated Store/Paywall interface-drift risk by forcing CI Stage 5 to validate the primary service contract plus all matrix fixtures on every push/pull request change, and by adding regression tests that fail if contract-test gating or fixture coverage is weakened. Owner: Diagon

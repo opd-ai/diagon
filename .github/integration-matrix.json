@@ -35,6 +35,7 @@
       "contract_fixtures": {
         "primary": "profiles/service-contract.json",
         "service_contracts": [
+          "profiles/service-contract.json",
           "profiles/fixtures/service-contract/store-paywall-i2pd-v2026.07.02.json",
           "profiles/fixtures/service-contract/store-paywall-i2pd-canary-v2026.07.02.json"
         ]

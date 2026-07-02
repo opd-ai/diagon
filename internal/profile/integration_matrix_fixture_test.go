@@ -90,6 +90,23 @@ func TestIntegrationMatrixServiceContractFixturesAreValid(t *testing.T) {
 		if env.ContractFixtures.Primary == "" {
 			t.Fatalf("environment[%d] must define contract_fixtures.primary", envIdx)
 		}
+
+		if len(env.ContractFixtures.ServiceContracts) == 0 {
+			t.Fatalf("environment[%d] must define at least one contract_fixtures.service_contracts entry", envIdx)
+		}
+
+		if !contains(env.ContractFixtures.ServiceContracts, env.ContractFixtures.Primary) {
+			t.Fatalf("environment[%d] contract_fixtures.service_contracts must include primary fixture %q", envIdx, env.ContractFixtures.Primary)
+		}
+
+		seenFixtures := make(map[string]struct{}, len(env.ContractFixtures.ServiceContracts))
+		for _, fixtureRelPath := range env.ContractFixtures.ServiceContracts {
+			if _, exists := seenFixtures[fixtureRelPath]; exists {
+				t.Fatalf("environment[%d] contract_fixtures.service_contracts contains duplicate fixture %q", envIdx, fixtureRelPath)
+			}
+			seenFixtures[fixtureRelPath] = struct{}{}
+		}
+
 		fixturePaths := append([]string{env.ContractFixtures.Primary}, env.ContractFixtures.ServiceContracts...)
 		if len(fixturePaths) == 0 {
 			t.Fatalf("environment[%d] must define at least one service contract fixture", envIdx)

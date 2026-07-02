@@ -487,7 +487,12 @@ jobs:
       - name: Validate profile and matrix service contract fixtures
         run: |
           mkdir -p artifacts/contract-tests
-          mapfile -t fixtures < <(echo '${{ toJson(matrix.service_contract_fixtures) }}' | jq -r '.[]')
+          mapfile -t fixtures < <(
+            jq -rn \
+              --arg primary '${{ matrix.service_contract_primary }}' \
+              --argjson contracts '${{ toJson(matrix.service_contract_fixtures) }}' \
+              '([$primary] + $contracts | unique[])[]'
+          )
           for fixture in "${fixtures[@]}"; do
             name=$(basename "$fixture" .json)
             go run ./cmd/diagonctl \
