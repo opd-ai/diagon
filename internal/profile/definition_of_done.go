@@ -184,8 +184,8 @@ func evaluateDefinitionOfDoneCI(matrix IntegrationMatrix, environmentName string
 		ID:          "dod-4-ci-stages",
 		Requirement: "CI demonstrates passing static checks, builds, unit tests, integration tests, end-to-end smoke tests, and Debian packaging verification.",
 		Evidence: []string{
-			"Release candidate baseline includes merge and release quality gate expectations.",
-			"Integration matrix environment exists and yields frozen CI baseline metadata.",
+			"Release candidate baseline defines merge (Stages 1-7) and release (Stage 8) quality gate expectations.",
+			"Integration matrix environment yields a frozen CI baseline; live CI stage results are enforced by the GitHub Actions workflow rather than this report.",
 		},
 	}
 

@@ -3,6 +3,7 @@ package profile
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -145,6 +146,30 @@ func TestBuildWorkflowIncludesFallbackComposeBundleValidation(t *testing.T) {
 
 	if !strings.Contains(contents, "- stage-7b-fallback-compose-bundle") {
 		t.Fatal("merge quality gate must depend on stage-7b-fallback-compose-bundle")
+	}
+}
+
+func TestBuildWorkflowHasNoEmbeddedPythonAndScriptsExist(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustRepoRoot(t)
+	workflowPath := filepath.Join(repoRoot, ".github", "workflows", "build.yml")
+	contents := string(mustReadFile(t, workflowPath))
+
+	if strings.Contains(contents, "python3") || strings.Contains(contents, "<<'PY'") {
+		t.Fatal("build workflow must not embed inline Python programs; extract them to Go tools or scripts")
+	}
+
+	re := regexp.MustCompile(`bash (\.github/scripts/[A-Za-z0-9._-]+\.sh)`)
+	matches := re.FindAllStringSubmatch(contents, -1)
+	if len(matches) == 0 {
+		t.Fatal("build workflow must invoke extracted scripts under .github/scripts")
+	}
+	for _, match := range matches {
+		scriptPath := filepath.Join(repoRoot, filepath.FromSlash(match[1]))
+		if _, err := os.Stat(scriptPath); err != nil {
+			t.Fatalf("referenced script %s does not exist: %v", match[1], err)
+		}
 	}
 }
 
