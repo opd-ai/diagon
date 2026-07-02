@@ -75,6 +75,11 @@ func ProbeServiceContractDefinition(contract ServiceContract, options RuntimePro
 	probeResult := probeServiceReadiness(contract.Services, options)
 	result.Errors = append(result.Errors, probeResult.Errors...)
 	result.Warnings = append(result.Warnings, probeResult.Warnings...)
+	if !probeResult.HasErrors() {
+		tunnelProbeResult := probeTunnelReadiness(contract.I2PDTunnels, options)
+		result.Errors = append(result.Errors, tunnelProbeResult.Errors...)
+		result.Warnings = append(result.Warnings, tunnelProbeResult.Warnings...)
+	}
 	result.Sort()
 	return result
 }
@@ -182,6 +187,46 @@ func waitForServiceReady(service ServiceDefinition, options RuntimeProbeOptions,
 			lastErr = err
 		} else {
 			return time.Now(), nil
+		}
+
+		time.Sleep(options.Interval)
+	}
+}
+
+func probeTunnelReadiness(tunnels []I2PDTunnel, options RuntimeProbeOptions) Result {
+	result := Result{}
+	if len(tunnels) == 0 {
+		result.Errors = append(result.Errors, "service contract must define at least one i2pd tunnel")
+		result.Sort()
+		return result
+	}
+
+	deadline := time.Now().Add(options.Timeout)
+	for _, tunnel := range tunnels {
+		if err := waitForTunnelReady(tunnel, options, deadline); err != nil {
+			result.Errors = append(result.Errors, err.Error())
+		}
+	}
+
+	result.Sort()
+	return result
+}
+
+func waitForTunnelReady(tunnel I2PDTunnel, options RuntimeProbeOptions, deadline time.Time) error {
+	var lastErr error
+
+	for {
+		if time.Now().After(deadline) {
+			if lastErr == nil {
+				lastErr = fmt.Errorf("i2pd tunnel %q did not become reachable before timeout %s", tunnel.Name, options.Timeout)
+			}
+			return fmt.Errorf("i2pd tunnel %q failed listener readiness probe within %s: %v", tunnel.Name, options.Timeout, lastErr)
+		}
+
+		if err := probeServiceListen(tunnel.Listen, options.ConnectTimeout); err == nil {
+			return nil
+		} else {
+			lastErr = err
 		}
 
 		time.Sleep(options.Interval)

@@ -226,12 +226,21 @@ jobs:
           echo $! > .tmp/store.pid
           sleep 1
 
+          nohup python3 .tmp/stub_service.py --port 18080 > artifacts/store-tunnel.log 2>&1 &
+          echo $! > .tmp/store-tunnel.pid
+          sleep 1
+
+          nohup python3 .tmp/stub_service.py --port 18081 > artifacts/paywall-tunnel.log 2>&1 &
+          echo $! > .tmp/paywall-tunnel.pid
+          sleep 1
+
       - name: Stage 4 live readiness probe
         run: |
           go run ./cmd/diagonctl \
             --profile-dir profiles \
             --profile-name myprofile \
             --policy-file profiles/validation-policy.json \
+            --bootstrap-profile-file profiles/local-single-host-bootstrap.json \
             --service-contract-file "${{ matrix.service_contract_primary }}" \
             --probe-live \
             --probe-timeout 45s \
@@ -257,6 +266,8 @@ jobs:
             artifacts/i2pd.log
             artifacts/paywall.log
             artifacts/store.log
+            artifacts/store-tunnel.log
+            artifacts/paywall-tunnel.log
           if-no-files-found: error
 
   stage-5-contract-tests:

@@ -1,0 +1,59 @@
+{
+  "name": "local-single-host-bootstrap",
+  "service_contract_file": "service-contract.json",
+  "startup_sequence": ["i2pd", "paywall", "store", "diagonctl"],
+  "expected_tunnels": ["store-http", "paywall-http"],
+  "components": [
+    {
+      "name": "i2pd",
+      "listen": "127.0.0.1:7070",
+      "health_url": "http://127.0.0.1:7070/health",
+      "config_path": "/etc/diagon/i2pd/i2pd.conf",
+      "settings": {
+        "tunnel_config_path": "/etc/diagon/i2pd/tunnels.conf"
+      }
+    },
+    {
+      "name": "paywall",
+      "listen": "127.0.0.1:8081",
+      "health_url": "http://127.0.0.1:8081/healthz",
+      "config_path": "/etc/diagon/paywall/config.yaml",
+      "wallet_mode": "stubbed",
+      "secret_refs": ["PAYWALL_WALLET_RPC_USER", "PAYWALL_WALLET_RPC_PASSWORD"],
+      "settings": {
+        "wallet_rpc_url": "http://127.0.0.1:18089/json_rpc"
+      }
+    },
+    {
+      "name": "store",
+      "listen": "127.0.0.1:8080",
+      "health_url": "http://127.0.0.1:8080/healthz",
+      "config_path": "/etc/diagon/store/config.yaml",
+      "requires_external_i2p_dependency": false,
+      "secret_refs": ["STORE_SESSION_SECRET"],
+      "settings": {
+        "paywall_endpoint": "http://127.0.0.1:8081/api/v1/payments"
+      }
+    }
+  ],
+  "secrets": [
+    {
+      "name": "PAYWALL_WALLET_RPC_USER",
+      "source": "env",
+      "ref": "PAYWALL_WALLET_RPC_USER",
+      "required": true
+    },
+    {
+      "name": "PAYWALL_WALLET_RPC_PASSWORD",
+      "source": "env",
+      "ref": "PAYWALL_WALLET_RPC_PASSWORD",
+      "required": true
+    },
+    {
+      "name": "STORE_SESSION_SECRET",
+      "source": "file",
+      "ref": "/run/secrets/store-session-secret",
+      "required": true
+    }
+  ]
+}

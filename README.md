@@ -14,6 +14,7 @@ It validates:
 - Optional JSON policy contracts to define required package/preseed sets per environment
 - Duplicate package and duplicate preseed key detection (warning-level)
 - Service integration contracts for local i2pd, Store, and Paywall topology
+- Local single-host bootstrap profile defaults, startup sequencing, expected tunnels, and secrets sources
 - i2pd tunnel contract entries including tunnel type and local listener-to-service target mappings
 - Endpoint compatibility checks for Store -> Paywall API links
 - Optional live readiness probes for health endpoints, listeners, and dependency sequencing
@@ -61,6 +62,17 @@ go run ./cmd/diagonctl \
 	--format json
 ```
 
+### Validate the Phase 1 single-host bootstrap profile
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--format json
+```
+
 ### Run live service probes (CI bootstrap handoff)
 
 ```bash
@@ -68,6 +80,7 @@ go run ./cmd/diagonctl \
 	--profile-dir profiles \
 	--profile-name myprofile \
 	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
 	--service-contract-file profiles/service-contract.json \
 	--probe-live \
 	--probe-timeout 45s \
@@ -86,10 +99,19 @@ The service contract validator enforces:
 - Local-only tunnel listener/target addresses and target-service port compatibility
 - Required tunnel mappings for both `store` and `paywall`
 
+The bootstrap profile validator enforces:
+
+- Deterministic Phase 1 startup order: `i2pd`, `paywall`, `store`, `diagonctl`
+- Local-only bind and health endpoints for the bootstrap components
+- Default local Store -> Paywall endpoint wiring and stubbed Paywall wallet mode
+- Absolute Debian-oriented config and secret file paths where file-backed secrets are used
+- Expected i2pd tunnel names for the single-host bootstrap profile
+
 When `--probe-live` is enabled, `diagonctl` also performs runtime checks:
 
 - TCP listener reachability for each service `listen` address
 - HTTP readiness checks for each service `health_url` (expects `2xx`)
+- TCP listener reachability for each expected i2pd tunnel listener
 - Dependency sequencing validation (`depends_on` services must become ready first)
 - Startup-order signal warnings when higher-order services become ready before lower-order services
 

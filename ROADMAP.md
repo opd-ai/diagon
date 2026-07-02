@@ -40,11 +40,11 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] Publish a single integration matrix listing component versions to test together. Owner: Diagon
 
 ### Phase 1: Local Single-Host Bootstrap (Lowest Risk First)
-- [ ] Establish deterministic local startup sequence: i2pd, Paywall, Store, Diagon orchestration check. Owner: TBD
-- [ ] Add environment profile template that boots all components with default local values and no manual edits beyond secrets. Owner: TBD
-- [ ] Validate i2pd is reachable locally and tunnels are created with expected endpoint status. Owner: TBD
-- [ ] Validate Store launches and exposes health endpoint without I2P external dependency. Owner: TBD
-- [ ] Validate Paywall launches and passes health check with stubbed wallet connectivity if needed. Owner: TBD
+- [x] Establish deterministic local startup sequence: i2pd, Paywall, Store, Diagon orchestration check. Owner: Diagon
+- [x] Add environment profile template that boots all components with default local values and no manual edits beyond secrets. Owner: Diagon
+- [x] Validate i2pd is reachable locally and tunnels are created with expected endpoint status. Owner: Diagon
+- [x] Validate Store launches and exposes health endpoint without I2P external dependency. Owner: Diagon
+- [x] Validate Paywall launches and passes health check with stubbed wallet connectivity if needed. Owner: Diagon
 
 ### Phase 2: Diagon Integration Wiring
 - [ ] Implement Diagon-managed config injection for Store, Paywall, and i2pd paths/ports. Owner: TBD
@@ -97,3 +97,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Split CI into explicit Stage 1-8 GitHub Actions jobs with Debian environment matrix metadata, staged artifacts, and explicit merge/release quality gate jobs (1-7 for merge, 8 for release). Owner: Diagon
 - [x] 2026-07-02: Replaced stubbed Store/Paywall CI matrix entries with pinned upstream build inputs sourced from `.github/integration-matrix.json`, and wired Stage 5 contract tests to execute matrix-defined service-contract fixtures. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 0 contract freeze by pinning Debian baseline/dependency metadata in `.github/integration-matrix.json`, enforcing i2pd tunnel type and local port-mapping contract checks in `diagonctl`, and extending fixtures/tests to cover the frozen integration contract set. Owner: Diagon
+- [x] 2026-07-02: Completed Phase 1 local single-host bootstrap by adding `profiles/local-single-host-bootstrap.json`, validating deterministic startup/default local wiring and secret-only operator inputs in `diagonctl`, and extending live probes/CI Stage 4 to verify i2pd tunnel listener reachability plus Store/Paywall readiness under stubbed local bootstrap defaults. Owner: Diagon

@@ -28,6 +28,16 @@ func TestProbeServiceContractDefinitionSuccess(t *testing.T) {
 	}))
 	t.Cleanup(storeServer.Close)
 
+	storeTunnelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(storeTunnelServer.Close)
+
+	paywallTunnelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(paywallTunnelServer.Close)
+
 	contract := ServiceContract{
 		Services: []ServiceDefinition{
 			{
@@ -60,14 +70,14 @@ func TestProbeServiceContractDefinitionSuccess(t *testing.T) {
 			{
 				Name:          "store-http",
 				Type:          "http",
-				Listen:        "127.0.0.1:18080",
+				Listen:        mustAddr(t, storeTunnelServer.URL),
 				Target:        mustAddr(t, storeServer.URL),
 				TargetService: "store",
 			},
 			{
 				Name:          "paywall-http",
 				Type:          "http",
-				Listen:        "127.0.0.1:18081",
+				Listen:        mustAddr(t, paywallTunnelServer.URL),
 				Target:        mustAddr(t, paywallServer.URL),
 				TargetService: "paywall",
 			},
@@ -80,6 +90,86 @@ func TestProbeServiceContractDefinitionSuccess(t *testing.T) {
 	})
 	if result.HasErrors() {
 		t.Fatalf("expected no errors, got %v", result.Errors)
+	}
+}
+
+func TestProbeServiceContractDefinitionTunnelTimeout(t *testing.T) {
+	t.Parallel()
+
+	i2pdServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(i2pdServer.Close)
+
+	paywallServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(paywallServer.Close)
+
+	storeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(storeServer.Close)
+
+	missingTunnelPort := freeTCPPort(t)
+
+	contract := ServiceContract{
+		Services: []ServiceDefinition{
+			{
+				Name:         "i2pd",
+				Listen:       mustAddr(t, i2pdServer.URL),
+				HealthURL:    i2pdServer.URL,
+				StartupOrder: 1,
+			},
+			{
+				Name:         "paywall",
+				Listen:       mustAddr(t, paywallServer.URL),
+				HealthURL:    paywallServer.URL,
+				DependsOn:    []string{"i2pd"},
+				StartupOrder: 2,
+			},
+			{
+				Name:         "store",
+				Listen:       mustAddr(t, storeServer.URL),
+				HealthURL:    storeServer.URL,
+				DependsOn:    []string{"i2pd", "paywall"},
+				StartupOrder: 3,
+			},
+		},
+		APILinks: []APILink{{
+			From:     "store",
+			To:       "paywall",
+			Endpoint: paywallServer.URL + "/api/v1/payments",
+		}},
+		I2PDTunnels: []I2PDTunnel{
+			{
+				Name:          "store-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:" + missingTunnelPort,
+				Target:        mustAddr(t, storeServer.URL),
+				TargetService: "store",
+			},
+			{
+				Name:          "paywall-http",
+				Type:          "http",
+				Listen:        mustAddr(t, paywallServer.URL),
+				Target:        mustAddr(t, paywallServer.URL),
+				TargetService: "paywall",
+			},
+		},
+	}
+
+	result := ProbeServiceContractDefinition(contract, RuntimeProbeOptions{
+		Timeout:  250 * time.Millisecond,
+		Interval: 25 * time.Millisecond,
+	})
+	if !result.HasErrors() {
+		t.Fatal("expected tunnel probe errors, got none")
+	}
+
+	joined := strings.Join(result.Errors, "\n")
+	if !strings.Contains(joined, "i2pd tunnel \"store-http\" failed listener readiness probe") {
+		t.Fatalf("expected tunnel readiness error, got: %s", joined)
 	}
 }
 
