@@ -40,11 +40,136 @@ func TestValidateServiceContractSuccess(t *testing.T) {
 				Endpoint: "http://127.0.0.1:8081/api/v1/payments",
 			},
 		},
+		I2PDTunnels: []I2PDTunnel{
+			{
+				Name:          "store-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18080",
+				Target:        "127.0.0.1:8080",
+				TargetService: "store",
+			},
+			{
+				Name:          "paywall-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18081",
+				Target:        "127.0.0.1:8081",
+				TargetService: "paywall",
+			},
+		},
 	}
 
 	result := ValidateServiceContractDefinition(contract)
 	if result.HasErrors() {
 		t.Fatalf("expected no errors, got %v", result.Errors)
+	}
+}
+
+func TestValidateServiceContractTunnelTargetPortMismatch(t *testing.T) {
+	t.Parallel()
+
+	contract := ServiceContract{
+		Services: []ServiceDefinition{
+			{
+				Name:         "i2pd",
+				Listen:       "127.0.0.1:7070",
+				HealthURL:    "http://127.0.0.1:7070/health",
+				StartupOrder: 1,
+			},
+			{
+				Name:         "paywall",
+				Listen:       "127.0.0.1:8081",
+				HealthURL:    "http://127.0.0.1:8081/healthz",
+				DependsOn:    []string{"i2pd"},
+				StartupOrder: 2,
+			},
+			{
+				Name:         "store",
+				Listen:       "127.0.0.1:8080",
+				HealthURL:    "http://127.0.0.1:8080/healthz",
+				DependsOn:    []string{"i2pd", "paywall"},
+				StartupOrder: 3,
+			},
+		},
+		APILinks: []APILink{
+			{
+				From:     "store",
+				To:       "paywall",
+				Endpoint: "http://127.0.0.1:8081/api/v1/payments",
+			},
+		},
+		I2PDTunnels: []I2PDTunnel{
+			{
+				Name:          "store-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18080",
+				Target:        "127.0.0.1:9999",
+				TargetService: "store",
+			},
+			{
+				Name:          "paywall-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18081",
+				Target:        "127.0.0.1:8081",
+				TargetService: "paywall",
+			},
+		},
+	}
+
+	result := ValidateServiceContractDefinition(contract)
+	joined := strings.Join(result.Errors, "\n")
+	if !strings.Contains(joined, "target port 9999 must match target_service \"store\" listen port 8080") {
+		t.Fatalf("expected tunnel target port compatibility error, got: %s", joined)
+	}
+}
+
+func TestValidateServiceContractMissingTunnelMapping(t *testing.T) {
+	t.Parallel()
+
+	contract := ServiceContract{
+		Services: []ServiceDefinition{
+			{
+				Name:         "i2pd",
+				Listen:       "127.0.0.1:7070",
+				HealthURL:    "http://127.0.0.1:7070/health",
+				StartupOrder: 1,
+			},
+			{
+				Name:         "paywall",
+				Listen:       "127.0.0.1:8081",
+				HealthURL:    "http://127.0.0.1:8081/healthz",
+				DependsOn:    []string{"i2pd"},
+				StartupOrder: 2,
+			},
+			{
+				Name:         "store",
+				Listen:       "127.0.0.1:8080",
+				HealthURL:    "http://127.0.0.1:8080/healthz",
+				DependsOn:    []string{"i2pd", "paywall"},
+				StartupOrder: 3,
+			},
+		},
+		APILinks: []APILink{
+			{
+				From:     "store",
+				To:       "paywall",
+				Endpoint: "http://127.0.0.1:8081/api/v1/payments",
+			},
+		},
+		I2PDTunnels: []I2PDTunnel{
+			{
+				Name:          "store-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18080",
+				Target:        "127.0.0.1:8080",
+				TargetService: "store",
+			},
+		},
+	}
+
+	result := ValidateServiceContractDefinition(contract)
+	joined := strings.Join(result.Errors, "\n")
+	if !strings.Contains(joined, "service \"paywall\" must have at least one i2pd tunnel mapping") {
+		t.Fatalf("expected missing paywall tunnel mapping error, got: %s", joined)
 	}
 }
 

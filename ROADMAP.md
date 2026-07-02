@@ -34,10 +34,10 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 
 ## 4. Phased Roadmap (checklist)
 ### Phase 0: Alignment and Contract Freeze
-- [ ] Define integration contracts for Store and Paywall (inputs, outputs, auth, health endpoints) and record acceptance tests. Owner: TBD
-- [ ] Freeze minimal supported Debian version and package dependencies list. Owner: TBD
-- [ ] Define required i2pd tunnel types and local port mapping table with expected listeners. Owner: TBD
-- [ ] Publish a single integration matrix listing component versions to test together. Owner: TBD
+- [x] Define integration contracts for Store and Paywall (inputs, outputs, auth, health endpoints) and record acceptance tests. Owner: Diagon
+- [x] Freeze minimal supported Debian version and package dependencies list. Owner: Diagon
+- [x] Define required i2pd tunnel types and local port mapping table with expected listeners. Owner: Diagon
+- [x] Publish a single integration matrix listing component versions to test together. Owner: Diagon
 
 ### Phase 1: Local Single-Host Bootstrap (Lowest Risk First)
 - [ ] Establish deterministic local startup sequence: i2pd, Paywall, Store, Diagon orchestration check. Owner: TBD
@@ -96,3 +96,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Added CI Stage 4 bootstrap wiring in GitHub Actions to launch ephemeral local i2pd/store/paywall stub services, execute `diagonctl --probe-live`, and publish JSON/log probe artifacts for traceability. Owner: Diagon
 - [x] 2026-07-02: Split CI into explicit Stage 1-8 GitHub Actions jobs with Debian environment matrix metadata, staged artifacts, and explicit merge/release quality gate jobs (1-7 for merge, 8 for release). Owner: Diagon
 - [x] 2026-07-02: Replaced stubbed Store/Paywall CI matrix entries with pinned upstream build inputs sourced from `.github/integration-matrix.json`, and wired Stage 5 contract tests to execute matrix-defined service-contract fixtures. Owner: Diagon
+- [x] 2026-07-02: Completed Phase 0 contract freeze by pinning Debian baseline/dependency metadata in `.github/integration-matrix.json`, enforcing i2pd tunnel type and local port-mapping contract checks in `diagonctl`, and extending fixtures/tests to cover the frozen integration contract set. Owner: Diagon

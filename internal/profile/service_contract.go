@@ -19,8 +19,9 @@ const (
 )
 
 type ServiceContract struct {
-	Services []ServiceDefinition `json:"services"`
-	APILinks []APILink           `json:"api_links"`
+	Services    []ServiceDefinition `json:"services"`
+	APILinks    []APILink           `json:"api_links"`
+	I2PDTunnels []I2PDTunnel        `json:"i2pd_tunnels"`
 }
 
 type ServiceDefinition struct {
@@ -35,6 +36,14 @@ type APILink struct {
 	From     string `json:"from"`
 	To       string `json:"to"`
 	Endpoint string `json:"endpoint"`
+}
+
+type I2PDTunnel struct {
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Listen        string `json:"listen"`
+	Target        string `json:"target"`
+	TargetService string `json:"target_service"`
 }
 
 func LoadServiceContract(path string) (ServiceContract, error) {
@@ -208,8 +217,84 @@ func ValidateServiceContractDefinition(contract ServiceContract) Result {
 		}
 	}
 
+	tunnelsByName := make(map[string]I2PDTunnel, len(contract.I2PDTunnels))
+	tunnelByTargetService := make(map[string]int, len(contract.I2PDTunnels))
+	for _, tunnel := range contract.I2PDTunnels {
+		tunnelName := strings.TrimSpace(tunnel.Name)
+		if tunnelName == "" {
+			result.Errors = append(result.Errors, "i2pd tunnel contains empty name")
+			continue
+		}
+
+		if _, exists := tunnelsByName[tunnelName]; exists {
+			result.Errors = append(result.Errors, fmt.Sprintf("duplicate i2pd tunnel %q in service contract", tunnelName))
+			continue
+		}
+		tunnelsByName[tunnelName] = tunnel
+
+		tunnelType := strings.TrimSpace(strings.ToLower(tunnel.Type))
+		if !isSupportedTunnelType(tunnelType) {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q has unsupported type %q", tunnelName, tunnel.Type))
+		}
+
+		listenHost, _, listenErr := splitHostPort(tunnel.Listen)
+		if listenErr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q has invalid listen address %q: %v", tunnelName, tunnel.Listen, listenErr))
+		} else if !isLoopbackHost(listenHost) {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q listen host %q must be local-only", tunnelName, listenHost))
+		}
+
+		targetHost, targetPort, targetErr := splitHostPort(tunnel.Target)
+		if targetErr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q has invalid target address %q: %v", tunnelName, tunnel.Target, targetErr))
+		} else if !isLoopbackHost(targetHost) {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q target host %q must be local-only", tunnelName, targetHost))
+		}
+
+		targetService := strings.TrimSpace(tunnel.TargetService)
+		if targetService == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q must define target_service", tunnelName))
+			continue
+		}
+		if targetService == requiredServiceI2PD {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q target_service %q is invalid; expected Store or Paywall service", tunnelName, targetService))
+			continue
+		}
+
+		targetSvc, exists := serviceByName[targetService]
+		if !exists {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q references undefined target_service %q", tunnelName, targetService))
+			continue
+		}
+
+		_, servicePort, svcErr := splitHostPort(targetSvc.Listen)
+		if svcErr == nil && targetPort != 0 && servicePort != 0 && targetPort != servicePort {
+			result.Errors = append(result.Errors, fmt.Sprintf("i2pd tunnel %q target port %d must match target_service %q listen port %d", tunnelName, targetPort, targetService, servicePort))
+		}
+
+		tunnelByTargetService[targetService]++
+	}
+
+	for _, requiredTunnelTarget := range []string{requiredServiceStore, requiredServicePaywall} {
+		if _, exists := serviceByName[requiredTunnelTarget]; !exists {
+			continue
+		}
+		if tunnelByTargetService[requiredTunnelTarget] == 0 {
+			result.Errors = append(result.Errors, fmt.Sprintf("service %q must have at least one i2pd tunnel mapping", requiredTunnelTarget))
+		}
+	}
+
 	result.Sort()
 	return result
+}
+
+func isSupportedTunnelType(tunnelType string) bool {
+	switch tunnelType {
+	case "client", "http", "http-proxy", "socks", "server":
+		return true
+	default:
+		return false
+	}
 }
 
 func splitHostPort(addr string) (string, int, error) {

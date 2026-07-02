@@ -3,8 +3,13 @@
   "environments": [
     {
       "environment": "debian-12",
+      "debian_version": "12",
       "debian_codename": "bookworm",
       "go_version": "1.23",
+      "package_dependencies": [
+        "simple-cdd",
+        "debian-archive-keyring"
+      ],
       "components": {
         "diagon": {
           "repo": "opd-ai/diagon",

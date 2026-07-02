@@ -56,6 +56,22 @@ func TestProbeServiceContractDefinitionSuccess(t *testing.T) {
 			To:       "paywall",
 			Endpoint: paywallServer.URL + "/api/v1/payments",
 		}},
+		I2PDTunnels: []I2PDTunnel{
+			{
+				Name:          "store-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18080",
+				Target:        mustAddr(t, storeServer.URL),
+				TargetService: "store",
+			},
+			{
+				Name:          "paywall-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18081",
+				Target:        mustAddr(t, paywallServer.URL),
+				TargetService: "paywall",
+			},
+		},
 	}
 
 	result := ProbeServiceContractDefinition(contract, RuntimeProbeOptions{
@@ -110,6 +126,22 @@ func TestProbeServiceContractDefinitionTimeout(t *testing.T) {
 			To:       "paywall",
 			Endpoint: "http://127.0.0.1:" + missingPort + "/api/v1/payments",
 		}},
+		I2PDTunnels: []I2PDTunnel{
+			{
+				Name:          "store-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18080",
+				Target:        mustAddr(t, storeServer.URL),
+				TargetService: "store",
+			},
+			{
+				Name:          "paywall-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18081",
+				Target:        "127.0.0.1:" + missingPort,
+				TargetService: "paywall",
+			},
+		},
 	}
 
 	result := ProbeServiceContractDefinition(contract, RuntimeProbeOptions{
@@ -173,6 +205,22 @@ func TestProbeServiceContractDefinitionDependencySequenceViolation(t *testing.T)
 			To:       "paywall",
 			Endpoint: paywallServer.URL + "/api/v1/payments",
 		}},
+		I2PDTunnels: []I2PDTunnel{
+			{
+				Name:          "store-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18080",
+				Target:        mustAddr(t, storeServer.URL),
+				TargetService: "store",
+			},
+			{
+				Name:          "paywall-http",
+				Type:          "http",
+				Listen:        "127.0.0.1:18081",
+				Target:        mustAddr(t, paywallServer.URL),
+				TargetService: "paywall",
+			},
+		},
 	}
 
 	result := ProbeServiceContractDefinition(contract, RuntimeProbeOptions{

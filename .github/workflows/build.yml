@@ -25,8 +25,10 @@ jobs:
         run: |
           ci_matrix=$(jq -c '{include: [.environments[] | {
             environment: .environment,
+            debian_version: .debian_version,
             debian_codename: .debian_codename,
             go_version: .go_version,
+            package_dependencies: .package_dependencies,
             diagon_repo: .components.diagon.repo,
             diagon_version: .components.diagon.version,
             diagon_build_input: .components.diagon.build_input,
@@ -105,7 +107,9 @@ jobs:
           cat > artifacts/metadata/build-metadata.json <<EOF
           {
             "environment": "${{ matrix.environment }}",
+            "debian_version": "${{ matrix.debian_version }}",
             "debian_codename": "${{ matrix.debian_codename }}",
+            "package_dependencies": ${{ toJson(matrix.package_dependencies) }},
             "components": {
               "diagon": {
                 "repo": "${{ matrix.diagon_repo }}",
@@ -399,7 +403,8 @@ jobs:
       - name: Verify Debian build toolchain installability
         run: |
           sudo apt-get update
-          sudo apt-get install -y simple-cdd debian-archive-keyring
+          mapfile -t deps < <(echo '${{ toJson(matrix.package_dependencies) }}' | jq -r '.[]')
+          sudo apt-get install -y "${deps[@]}"
           dpkg -s simple-cdd >/dev/null
 
       - name: Import Debian archive keys (best effort)

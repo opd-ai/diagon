@@ -13,7 +13,25 @@ type integrationMatrix struct {
 }
 
 type integrationEnvironment struct {
-	ContractFixtures integrationContractFixtures `json:"contract_fixtures"`
+	Environment         string                      `json:"environment"`
+	DebianVersion       string                      `json:"debian_version"`
+	DebianCodename      string                      `json:"debian_codename"`
+	PackageDependencies []string                    `json:"package_dependencies"`
+	Components          integrationMatrixComponents `json:"components"`
+	ContractFixtures    integrationContractFixtures `json:"contract_fixtures"`
+}
+
+type integrationMatrixComponents struct {
+	Diagon  integrationMatrixComponent `json:"diagon"`
+	Store   integrationMatrixComponent `json:"store"`
+	Paywall integrationMatrixComponent `json:"paywall"`
+	I2PD    integrationMatrixComponent `json:"i2pd"`
+}
+
+type integrationMatrixComponent struct {
+	Repo       string `json:"repo"`
+	Version    string `json:"version"`
+	BuildInput string `json:"build_input"`
 }
 
 type integrationContractFixtures struct {
@@ -42,6 +60,42 @@ func TestIntegrationMatrixServiceContractFixturesAreValid(t *testing.T) {
 	}
 
 	for envIdx, env := range matrix.Environments {
+		if env.Environment == "" {
+			t.Fatalf("environment[%d] must define environment", envIdx)
+		}
+		if env.DebianVersion == "" {
+			t.Fatalf("environment[%d] must define debian_version", envIdx)
+		}
+		if env.DebianCodename == "" {
+			t.Fatalf("environment[%d] must define debian_codename", envIdx)
+		}
+		if len(env.PackageDependencies) == 0 {
+			t.Fatalf("environment[%d] must define package_dependencies", envIdx)
+		}
+		if !contains(env.PackageDependencies, "simple-cdd") {
+			t.Fatalf("environment[%d] package_dependencies must include simple-cdd", envIdx)
+		}
+		if !contains(env.PackageDependencies, "debian-archive-keyring") {
+			t.Fatalf("environment[%d] package_dependencies must include debian-archive-keyring", envIdx)
+		}
+
+		for name, component := range map[string]integrationMatrixComponent{
+			"diagon":  env.Components.Diagon,
+			"store":   env.Components.Store,
+			"paywall": env.Components.Paywall,
+			"i2pd":    env.Components.I2PD,
+		} {
+			if component.Repo == "" {
+				t.Fatalf("environment[%d].components.%s.repo must be set", envIdx, name)
+			}
+			if component.Version == "" {
+				t.Fatalf("environment[%d].components.%s.version must be set", envIdx, name)
+			}
+			if component.BuildInput == "" {
+				t.Fatalf("environment[%d].components.%s.build_input must be set", envIdx, name)
+			}
+		}
+
 		if env.ContractFixtures.Primary == "" {
 			t.Fatalf("environment[%d] must define contract_fixtures.primary", envIdx)
 		}
@@ -67,6 +121,16 @@ func TestIntegrationMatrixServiceContractFixturesAreValid(t *testing.T) {
 			}
 		}
 	}
+}
+
+func contains(items []string, needle string) bool {
+	for _, item := range items {
+		if item == needle {
+			return true
+		}
+	}
+
+	return false
 }
 
 func mustRepoRoot(t *testing.T) string {

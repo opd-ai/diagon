@@ -14,6 +14,7 @@ It validates:
 - Optional JSON policy contracts to define required package/preseed sets per environment
 - Duplicate package and duplicate preseed key detection (warning-level)
 - Service integration contracts for local i2pd, Store, and Paywall topology
+- i2pd tunnel contract entries including tunnel type and local listener-to-service target mappings
 - Endpoint compatibility checks for Store -> Paywall API links
 - Optional live readiness probes for health endpoints, listeners, and dependency sequencing
 
@@ -81,6 +82,9 @@ The service contract validator enforces:
 - Startup ordering (`i2pd` must start before `store` and `paywall`)
 - Dependency integrity and cycle detection
 - API link endpoint port compatibility (`store` to `paywall`)
+- i2pd tunnel type validation (`client`, `http`, `http-proxy`, `socks`, `server`)
+- Local-only tunnel listener/target addresses and target-service port compatibility
+- Required tunnel mappings for both `store` and `paywall`
 
 When `--probe-live` is enabled, `diagonctl` also performs runtime checks:
 
@@ -105,7 +109,7 @@ go test ./...
 
 The GitHub Actions workflow is now split into explicit Stage 1 through Stage 8 jobs with environment metadata for Debian 12 (`bookworm`):
 
-Integration versions and contract fixtures are sourced from [.github/integration-matrix.json](.github/integration-matrix.json). This matrix pins upstream build inputs for Store and Paywall, and defines the service-contract fixtures executed in CI contract testing.
+Integration versions and contract fixtures are sourced from [.github/integration-matrix.json](.github/integration-matrix.json). This matrix pins a Debian baseline (`debian_version` + `debian_codename`), freezes packaging dependencies (`package_dependencies`), pins upstream build inputs for Store and Paywall, and defines the service-contract fixtures executed in CI contract testing.
 
 - Stage 1: static checks (`actionlint`, `gofmt`, `go vet`)
 - Stage 2: build artifacts and build-metadata emission for Diagon/Store/Paywall/i2pd pinned matrix entries

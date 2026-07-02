@@ -28,5 +28,21 @@
       "to": "paywall",
       "endpoint": "http://127.0.0.1:8081/api/v1/checkout"
     }
+  ],
+  "i2pd_tunnels": [
+    {
+      "name": "store-http",
+      "type": "http",
+      "listen": "127.0.0.1:18080",
+      "target": "127.0.0.1:8080",
+      "target_service": "store"
+    },
+    {
+      "name": "paywall-http",
+      "type": "http",
+      "listen": "127.0.0.1:18081",
+      "target": "127.0.0.1:8081",
+      "target_service": "paywall"
+    }
   ]
 }
