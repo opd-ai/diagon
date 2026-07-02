@@ -11,6 +11,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Validate Debian profile
+        run: go run ./cmd/diagonctl --profile-dir profiles --profile-name myprofile
+
       - name: Install simple-cdd
         run: |
           sudo apt-get update
