@@ -149,6 +149,36 @@ func TestBuildWorkflowIncludesFallbackComposeBundleValidation(t *testing.T) {
 	}
 }
 
+func TestBuildWorkflowUsesPinnedActionlintScript(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustRepoRoot(t)
+	workflowPath := filepath.Join(repoRoot, ".github", "workflows", "build.yml")
+	contents := string(mustReadFile(t, workflowPath))
+
+	if strings.Contains(contents, "rhysd/actionlint@") {
+		t.Fatal("build workflow must not reference the non-existent rhysd/actionlint action tag; use the pinned download script instead")
+	}
+
+	if !strings.Contains(contents, "bash .github/scripts/run-actionlint.sh") {
+		t.Fatal("build workflow must lint workflows via .github/scripts/run-actionlint.sh")
+	}
+
+	scriptPath := filepath.Join(repoRoot, ".github", "scripts", "run-actionlint.sh")
+	script := string(mustReadFile(t, scriptPath))
+	if !strings.Contains(script, "download-actionlint.bash") {
+		t.Fatal("run-actionlint.sh must download a pinned actionlint release")
+	}
+
+	if !strings.Contains(script, "ACTIONLINT_VERSION") {
+		t.Fatal("run-actionlint.sh must pin the actionlint version")
+	}
+
+	if !strings.Contains(script, "./actionlint") {
+		t.Fatal("run-actionlint.sh must execute actionlint against the workflow files")
+	}
+}
+
 func TestBuildWorkflowHasNoEmbeddedPythonAndScriptsExist(t *testing.T) {
 	t.Parallel()
 

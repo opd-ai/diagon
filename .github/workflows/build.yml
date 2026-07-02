@@ -41,7 +41,7 @@ jobs:
           go-version: ${{ matrix.go_version }}
 
       - name: Validate workflow and shell scripts
-        uses: rhysd/actionlint@v1
+        run: bash .github/scripts/run-actionlint.sh
 
       - name: Check formatting
         run: test -z "$(gofmt -l .)"

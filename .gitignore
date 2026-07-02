@@ -38,3 +38,4 @@ build
 # CI build/output artifacts
 artifacts/
 release-artifacts/
+actionlint
