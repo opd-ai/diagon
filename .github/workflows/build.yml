@@ -374,8 +374,14 @@ jobs:
       - name: Verify Debian build toolchain installability
         run: |
           sudo apt-get update
-          sudo apt-get install -y simple-cdd
+          sudo apt-get install -y simple-cdd debian-archive-keyring
           dpkg -s simple-cdd >/dev/null
+
+      - name: Import Debian archive keys (best effort)
+        run: |
+          gpg --keyserver keyserver.ubuntu.com --recv-keys B8E5F13176D2A7A75220028078DBA3BC47EF2265 || true
+          gpg --keyserver keyserver.ubuntu.com --recv-keys B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 || true
+          gpg --export B8E5F13176D2A7A75220028078DBA3BC47EF2265 B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 | sudo tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null || true
 
       - name: Build Debian installer ISO
         run: |
@@ -423,7 +429,7 @@ jobs:
       - name: Generate checksums and version manifest
         run: |
           mkdir -p release-artifacts/manifest
-          sha256sum release-artifacts/*.iso > release-artifacts/manifest/SHA256SUMS
+          find release-artifacts -type f -name '*.iso' -print0 | xargs -0 sha256sum > release-artifacts/manifest/SHA256SUMS
           cat > release-artifacts/manifest/version-manifest.json <<EOF
           {
             "environment": "${{ matrix.environment }}",
@@ -442,7 +448,7 @@ jobs:
         with:
           name: stage-8-release-bundle-${{ matrix.environment }}
           path: |
-            release-artifacts/*.iso
+            release-artifacts/**/*.iso
             release-artifacts/manifest/SHA256SUMS
             release-artifacts/manifest/version-manifest.json
 
@@ -450,7 +456,7 @@ jobs:
         if: github.event_name == 'release'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "release-artifacts/*.iso,release-artifacts/manifest/SHA256SUMS,release-artifacts/manifest/version-manifest.json"
+          artifacts: "release-artifacts/**/*.iso,release-artifacts/manifest/SHA256SUMS,release-artifacts/manifest/version-manifest.json"
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
           replacesArtifacts: true
