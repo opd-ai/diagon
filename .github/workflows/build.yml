@@ -355,17 +355,17 @@ jobs:
 
 
           class Handler(BaseHTTPRequestHandler):
-            ready_after = 0.0
+              ready_after = 0.0
 
               def do_GET(self):
-              if time.monotonic() < self.ready_after:
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(b'{"status":"starting"}')
-                return
+                  if time.monotonic() < self.ready_after:
+                      self.send_response(503)
+                      self.send_header("Content-Type", "application/json")
+                      self.end_headers()
+                      self.wfile.write(b'{"status":"starting"}')
+                      return
 
-              self.send_response(200)
+                  self.send_response(200)
                   self.send_header("Content-Type", "application/json")
                   self.end_headers()
                   self.wfile.write(b'{"status":"ok"}')
