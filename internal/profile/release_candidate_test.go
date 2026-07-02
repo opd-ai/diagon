@@ -154,7 +154,7 @@ func TestBuildReleaseCandidateBaselineFromMatrix(t *testing.T) {
 	if baseline.TagName != "integration-debian-12-v2026.07.02" {
 		t.Fatalf("unexpected tag name: %q", baseline.TagName)
 	}
-	if baseline.Components["store"].Version != "v0.9.3" {
+	if baseline.Components["store"].Version != "main" {
 		t.Fatalf("unexpected store version: %q", baseline.Components["store"].Version)
 	}
 	if len(baseline.ContractFixtures) != 3 {

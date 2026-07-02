@@ -18,13 +18,13 @@
         },
         "store": {
           "repo": "opd-ai/store",
-          "version": "v0.9.3",
-          "build_input": "github.com/opd-ai/store/cmd/store@v0.9.3"
+          "version": "main",
+          "build_input": "github.com/opd-ai/store/cmd/store@main"
         },
         "paywall": {
           "repo": "opd-ai/paywall",
-          "version": "v0.7.1",
-          "build_input": "github.com/opd-ai/paywall/cmd/paywall@v0.7.1"
+          "version": "main",
+          "build_input": "github.com/opd-ai/paywall/cmd/paywall@main"
         },
         "i2pd": {
           "repo": "purplei2p/i2pd",

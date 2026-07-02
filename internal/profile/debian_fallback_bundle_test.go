@@ -50,7 +50,7 @@ func TestBuildDebianComposeServiceBundleSuccess(t *testing.T) {
 	if len(bundle.ValidationChecks) < 5 {
 		t.Fatalf("expected validation checks for compose, services, and tunnels, got %d", len(bundle.ValidationChecks))
 	}
-	if bundle.PinnedImageReference["store"] != "ghcr.io/opd-ai/store:v0.9.3" {
+	if bundle.PinnedImageReference["store"] != "ghcr.io/opd-ai/store:main" {
 		t.Fatalf("unexpected pinned store image reference: %q", bundle.PinnedImageReference["store"])
 	}
 	if !strings.Contains(bundle.ManualInstallGuide.Content, "systemctl enable --now diagon-compose.service") {
