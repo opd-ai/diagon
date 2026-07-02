@@ -92,4 +92,6 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 ## 8. Implementation Progress Log
 - [x] 2026-07-02: Added policy-driven profile validation contract support in `diagonctl` with deterministic output sorting, duplicate-entry warnings, and JSON output mode for CI integration. Owner: Diagon
 - [x] 2026-07-02: Extended `diagonctl` contract coverage to service integration validation for Store/Paywall/i2pd health endpoints, startup ordering, dependency integrity, and Store->Paywall endpoint compatibility checks. Owner: Diagon
-- [ ] Next: Add executable integration probes that can actively verify live health/readiness endpoints and startup sequencing in CI environment bootstrap (Stage 4/5 handoff). Owner: TBD
+- [x] 2026-07-02: Added executable service-contract runtime probes in `diagonctl` to actively verify listener reachability, health/readiness endpoints, and dependency/startup sequencing signals for CI bootstrap validation. Owner: Diagon
+- [x] 2026-07-02: Added CI Stage 4 bootstrap wiring in GitHub Actions to launch ephemeral local i2pd/store/paywall stub services, execute `diagonctl --probe-live`, and publish JSON/log probe artifacts for traceability. Owner: Diagon
+- [ ] Next: Split CI stages into explicit Stage 1-8 jobs with required-status quality gates (merge blocked on 1-7, release blocked on 8) and environment-specific matrix metadata. Owner: TBD

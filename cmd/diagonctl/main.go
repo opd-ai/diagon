@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/opd-ai/diagon/internal/profile"
 )
@@ -16,6 +17,9 @@ func main() {
 		profileName  string
 		policyPath   string
 		contractPath string
+		probeLive    bool
+		probeTimeout time.Duration
+		probeEvery   time.Duration
 		strict       bool
 		outputFmt    string
 	)
@@ -24,6 +28,9 @@ func main() {
 	flag.StringVar(&profileName, "profile-name", "myprofile", "profile filename prefix")
 	flag.StringVar(&policyPath, "policy-file", "", "optional JSON policy file for required packages and preseed keys")
 	flag.StringVar(&contractPath, "service-contract-file", "", "optional JSON service integration contract file for Store/Paywall/i2pd checks")
+	flag.BoolVar(&probeLive, "probe-live", false, "actively probe service health/listen endpoints from service contract")
+	flag.DurationVar(&probeTimeout, "probe-timeout", 30*time.Second, "max time to wait for live service probes")
+	flag.DurationVar(&probeEvery, "probe-interval", 500*time.Millisecond, "retry interval for live service probes")
 	flag.BoolVar(&strict, "strict", false, "treat warnings as validation errors")
 	flag.StringVar(&outputFmt, "format", "text", "output format: text or json")
 	flag.Parse()
@@ -47,13 +54,26 @@ func main() {
 	}
 
 	if !strings.EqualFold(strings.TrimSpace(contractPath), "") {
-		serviceResult, serviceErr := profile.ValidateServiceContract(contractPath)
-		if serviceErr != nil {
-			emitFailure(outputFmt, fmt.Errorf("validation error: %w", serviceErr), nil)
+		contract, loadErr := profile.LoadServiceContract(contractPath)
+		if loadErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", loadErr), nil)
 			os.Exit(2)
 		}
-		result.Errors = append(result.Errors, serviceResult.Errors...)
-		result.Warnings = append(result.Warnings, serviceResult.Warnings...)
+
+		serviceResult := profile.ValidateServiceContractDefinition(contract)
+		if probeLive {
+			serviceResult = profile.ProbeServiceContractDefinition(contract, profile.RuntimeProbeOptions{
+				Timeout:  probeTimeout,
+				Interval: probeEvery,
+			})
+		}
+
+		if serviceResult.HasErrors() {
+			result.Errors = append(result.Errors, serviceResult.Errors...)
+		}
+		if len(serviceResult.Warnings) > 0 {
+			result.Warnings = append(result.Warnings, serviceResult.Warnings...)
+		}
 		result.Sort()
 	}
 
@@ -68,6 +88,9 @@ func main() {
 			ProfileDir          string   `json:"profile_dir"`
 			ProfileName         string   `json:"profile_name"`
 			ServiceContractFile string   `json:"service_contract_file,omitempty"`
+			ProbeLive           bool     `json:"probe_live"`
+			ProbeTimeout        string   `json:"probe_timeout,omitempty"`
+			ProbeInterval       string   `json:"probe_interval,omitempty"`
 			Strict              bool     `json:"strict"`
 			Errors              []string `json:"errors"`
 			Warnings            []string `json:"warnings"`
@@ -76,9 +99,14 @@ func main() {
 			ProfileDir:          profileDir,
 			ProfileName:         profileName,
 			ServiceContractFile: strings.TrimSpace(contractPath),
+			ProbeLive:           probeLive,
 			Strict:              strict,
 			Errors:              result.Errors,
 			Warnings:            result.Warnings,
+		}
+		if probeLive {
+			payload.ProbeTimeout = probeTimeout.String()
+			payload.ProbeInterval = probeEvery.String()
 		}
 
 		enc := json.NewEncoder(os.Stdout)

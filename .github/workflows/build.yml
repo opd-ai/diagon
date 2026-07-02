@@ -25,6 +25,79 @@ jobs:
       - name: Validate service integration contract
         run: go run ./cmd/diagonctl --profile-dir profiles --profile-name myprofile --policy-file profiles/validation-policy.json --service-contract-file profiles/service-contract.json --format json
 
+      - name: Bootstrap local integration stubs
+        run: |
+          mkdir -p artifacts .tmp
+          cat > .tmp/stub_service.py <<'PY'
+          import argparse
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+          class Handler(BaseHTTPRequestHandler):
+              def do_GET(self):
+                  self.send_response(200)
+                  self.send_header("Content-Type", "application/json")
+                  self.end_headers()
+                  self.wfile.write(b'{"status":"ok"}')
+
+              def log_message(self, format, *args):
+                  return
+
+
+          if __name__ == "__main__":
+              parser = argparse.ArgumentParser()
+              parser.add_argument("--port", type=int, required=True)
+              args = parser.parse_args()
+
+              server = HTTPServer(("127.0.0.1", args.port), Handler)
+              server.serve_forever()
+          PY
+
+          nohup python3 .tmp/stub_service.py --port 7070 > artifacts/i2pd.log 2>&1 &
+          echo $! > .tmp/i2pd.pid
+          sleep 1
+
+          nohup python3 .tmp/stub_service.py --port 8081 > artifacts/paywall.log 2>&1 &
+          echo $! > .tmp/paywall.pid
+          sleep 1
+
+          nohup python3 .tmp/stub_service.py --port 8080 > artifacts/store.log 2>&1 &
+          echo $! > .tmp/store.pid
+          sleep 1
+
+      - name: Stage 4 live readiness probe
+        run: |
+          go run ./cmd/diagonctl \
+            --profile-dir profiles \
+            --profile-name myprofile \
+            --policy-file profiles/validation-policy.json \
+            --service-contract-file profiles/service-contract.json \
+            --probe-live \
+            --probe-timeout 45s \
+            --probe-interval 250ms \
+            --format json | tee artifacts/service-probe.json
+
+      - name: Cleanup integration stubs
+        if: always()
+        run: |
+          for pid_file in .tmp/*.pid; do
+            if [ -f "$pid_file" ]; then
+              kill "$(cat "$pid_file")" || true
+            fi
+          done
+
+      - name: Upload integration probe artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-probe-report
+          path: |
+            artifacts/service-probe.json
+            artifacts/i2pd.log
+            artifacts/paywall.log
+            artifacts/store.log
+          if-no-files-found: error
+
       - name: Install simple-cdd
         run: |
           sudo apt-get update
