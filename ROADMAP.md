@@ -88,3 +88,8 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [ ] Diagon successfully wires Store and Paywall configs and reports aggregated health accurately. Owner: TBD
 - [ ] CI demonstrates passing static checks, builds, unit tests, integration tests, end-to-end smoke tests, and Debian packaging verification. Owner: TBD
 - [ ] Release artifact set includes version manifest, checksums, and operator runbook sufficient for reproducible deployment. Owner: TBD
+
+## 8. Implementation Progress Log
+- [x] 2026-07-02: Added policy-driven profile validation contract support in `diagonctl` with deterministic output sorting, duplicate-entry warnings, and JSON output mode for CI integration. Owner: Diagon
+- [x] 2026-07-02: Extended `diagonctl` contract coverage to service integration validation for Store/Paywall/i2pd health endpoints, startup ordering, dependency integrity, and Store->Paywall endpoint compatibility checks. Owner: Diagon
+- [ ] Next: Add executable integration probes that can actively verify live health/readiness endpoints and startup sequencing in CI environment bootstrap (Stage 4/5 handoff). Owner: TBD

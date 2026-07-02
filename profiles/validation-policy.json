@@ -1,0 +1,11 @@
+{
+  "required_packages": [
+    "curl",
+    "i2pd",
+    "openssh-server"
+  ],
+  "required_preseed": {
+    "passwd/root-login": "false",
+    "time/zone": "*non-empty*"
+  }
+}
