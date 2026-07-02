@@ -30,8 +30,14 @@ func TestBuildWorkflowRunsContractTestsOnPushAndPullRequest(t *testing.T) {
 		t.Fatal("merge quality gate must depend on stage-5-contract-tests")
 	}
 
-	if !strings.Contains(contents, "--service-contract-file \"$fixture\" \\") {
-		t.Fatal("stage-5-contract-tests must execute diagonctl for each fixture")
+	if !strings.Contains(contents, "bash .github/scripts/validate-contract-fixtures.sh") {
+		t.Fatal("stage-5-contract-tests must run validate-contract-fixtures.sh")
+	}
+
+	scriptPath := filepath.Join(repoRoot, ".github", "scripts", "validate-contract-fixtures.sh")
+	script := string(mustReadFile(t, scriptPath))
+	if !strings.Contains(script, "--service-contract-file \"$fixture\" \\") {
+		t.Fatal("validate-contract-fixtures.sh must execute diagonctl for each fixture")
 	}
 }
 
@@ -54,12 +60,17 @@ func TestBuildWorkflowStage7UsesDebianDependencyManifest(t *testing.T) {
 		t.Fatal("stage-7-packaging-verification must emit debian dependency manifest")
 	}
 
-	if !strings.Contains(contents, "jq -r '.package_dependencies[].name' \"$manifest\"") {
-		t.Fatal("stage-7-packaging-verification must install dependencies from emitted manifest")
+	if !strings.Contains(contents, "bash .github/scripts/verify-debian-toolchain.sh") {
+		t.Fatal("stage-7-packaging-verification must run verify-debian-toolchain.sh")
 	}
 
-	if !strings.Contains(contents, "jq -e '.component_package_constraints[] | select(.component == \"i2pd\") | .codename == \"${{ matrix.debian_codename }}\"'") {
-		t.Fatal("stage-7-packaging-verification must enforce i2pd codename constraint from emitted manifest")
+	toolchainScript := string(mustReadFile(t, filepath.Join(repoRoot, ".github", "scripts", "verify-debian-toolchain.sh")))
+	if !strings.Contains(toolchainScript, "jq -r '.package_dependencies[].name' \"$manifest\"") {
+		t.Fatal("verify-debian-toolchain.sh must install dependencies from emitted manifest")
+	}
+
+	if !strings.Contains(toolchainScript, ".component_package_constraints[] | select(.component == \"i2pd\") | .codename == $codename") {
+		t.Fatal("verify-debian-toolchain.sh must enforce i2pd codename constraint from emitted manifest")
 	}
 }
 
@@ -78,12 +89,17 @@ func TestBuildWorkflowIncludesWalletChecklistAndStubbedCIAssertions(t *testing.T
 		t.Fatal("stage-6-e2e-smoke must emit bootstrap quickstart artifact")
 	}
 
-	if !strings.Contains(contents, "jq -e '.wallet_mode == \"stubbed\"' artifacts/stage-6-smoke-plan.json") {
-		t.Fatal("stage-6-e2e-smoke must assert stubbed wallet mode in emitted smoke plan")
+	if !strings.Contains(contents, "bash .github/scripts/assert-stubbed-wallet-mode.sh") {
+		t.Fatal("stage-6-e2e-smoke must run assert-stubbed-wallet-mode.sh")
 	}
 
-	if !strings.Contains(contents, "jq -e '.initial.wallet_mode == \"stubbed\"' artifacts/stage-6-smoke.json") {
-		t.Fatal("stage-6-e2e-smoke must assert stubbed wallet mode in smoke harness output")
+	walletScript := string(mustReadFile(t, filepath.Join(repoRoot, ".github", "scripts", "assert-stubbed-wallet-mode.sh")))
+	if !strings.Contains(walletScript, "jq -e '.wallet_mode == \"stubbed\"' artifacts/stage-6-smoke-plan.json") {
+		t.Fatal("assert-stubbed-wallet-mode.sh must assert stubbed wallet mode in emitted smoke plan")
+	}
+
+	if !strings.Contains(walletScript, "jq -e '.initial.wallet_mode == \"stubbed\"' artifacts/stage-6-smoke.json") {
+		t.Fatal("assert-stubbed-wallet-mode.sh must assert stubbed wallet mode in smoke harness output")
 	}
 
 	if !strings.Contains(contents, "--emit-wallet-validation-checklist-file release-artifacts/manifest/wallet-validation-checklist.md \\") {
@@ -114,12 +130,17 @@ func TestBuildWorkflowIncludesFallbackComposeBundleValidation(t *testing.T) {
 		t.Fatal("stage-7b fallback job must emit the Debian compose bundle artifact")
 	}
 
-	if !strings.Contains(contents, "jq -e '.compose.path == \"/opt/diagon/compose/compose.yaml\"'") {
-		t.Fatal("stage-7b fallback job must assert the emitted compose path")
+	if !strings.Contains(contents, "bash .github/scripts/validate-fallback-bundle.sh") {
+		t.Fatal("stage-7b fallback job must run validate-fallback-bundle.sh")
 	}
 
-	if !strings.Contains(contents, "jq -e '.systemd_unit.path == \"/etc/systemd/system/diagon-compose.service\"'") {
-		t.Fatal("stage-7b fallback job must assert the emitted systemd unit path")
+	fallbackScript := string(mustReadFile(t, filepath.Join(repoRoot, ".github", "scripts", "validate-fallback-bundle.sh")))
+	if !strings.Contains(fallbackScript, "jq -e '.compose.path == \"/opt/diagon/compose/compose.yaml\"'") {
+		t.Fatal("validate-fallback-bundle.sh must assert the emitted compose path")
+	}
+
+	if !strings.Contains(fallbackScript, "jq -e '.systemd_unit.path == \"/etc/systemd/system/diagon-compose.service\"'") {
+		t.Fatal("validate-fallback-bundle.sh must assert the emitted systemd unit path")
 	}
 
 	if !strings.Contains(contents, "- stage-7b-fallback-compose-bundle") {

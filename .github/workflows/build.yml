@@ -22,30 +22,7 @@ jobs:
 
       - name: Build CI matrix from integration matrix file
         id: matrix
-        run: |
-          ci_matrix=$(jq -c '{include: [.environments[] | {
-            environment: .environment,
-            debian_version: .debian_version,
-            debian_codename: .debian_codename,
-            go_version: .go_version,
-            package_dependencies: .package_dependencies,
-            components: .components,
-            diagon_repo: .components.diagon.repo,
-            diagon_version: .components.diagon.version,
-            diagon_build_input: .components.diagon.build_input,
-            store_repo: .components.store.repo,
-            store_version: .components.store.version,
-            store_build_input: .components.store.build_input,
-            paywall_repo: .components.paywall.repo,
-            paywall_version: .components.paywall.version,
-            paywall_build_input: .components.paywall.build_input,
-            i2pd_repo: .components.i2pd.repo,
-            i2pd_version: .components.i2pd.version,
-            i2pd_build_input: .components.i2pd.build_input,
-            service_contract_primary: .contract_fixtures.primary,
-            service_contract_fixtures: .contract_fixtures.service_contracts
-          }]}' .github/integration-matrix.json)
-          echo "ci_matrix=$ci_matrix" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/build-ci-matrix.sh
 
   stage-1-static-checks:
     name: Stage 1 - Static checks (${{ matrix.environment }})
@@ -73,83 +50,14 @@ jobs:
         run: go vet ./...
 
       - name: Verify pinned component refs
-        run: |
-          set -euo pipefail
-
-          verify_ref() {
-            local name="$1"
-            local repo="$2"
-            local version="$3"
-            local url="https://github.com/${repo}.git"
-
-            if git ls-remote --exit-code --heads "$url" "$version" >/dev/null 2>&1; then
-              return 0
-            fi
-            if git ls-remote --exit-code --tags "$url" "refs/tags/$version" >/dev/null 2>&1; then
-              return 0
-            fi
-            if git ls-remote --exit-code --tags "$url" "refs/tags/$version^{}" >/dev/null 2>&1; then
-              return 0
-            fi
-
-            echo "::error::component ${name} could not resolve pinned ref ${version} in ${repo}"
-            return 1
-          }
-
-          while IFS=$'\t' read -r name repo version; do
-            verify_ref "$name" "$repo" "$version"
-          done < <(echo '${{ toJson(matrix.components) }}' | jq -r 'to_entries[] | [.key, .value.repo, .value.version] | @tsv')
+        env:
+          COMPONENTS_JSON: ${{ toJson(matrix.components) }}
+        run: bash .github/scripts/verify-component-refs.sh
 
       - name: Run matrix Go static checks
-        run: |
-          set -euo pipefail
-
-          checkout_component() {
-            local name="$1"
-            local repo="$2"
-            local version="$3"
-            local destination="$4"
-
-            rm -rf "$destination"
-            git clone --depth 1 --branch "$version" "https://github.com/${repo}.git" "$destination" 2>/dev/null && return 0
-
-            rm -rf "$destination"
-            git clone --depth 1 "https://github.com/${repo}.git" "$destination"
-            git -C "$destination" checkout "$version"
-          }
-
-          run_go_static_checks() {
-            local name="$1"
-            local path="$2"
-
-            pushd "$path" >/dev/null
-            unformatted=$(gofmt -l .)
-            if [[ -n "$unformatted" ]]; then
-              echo "::error::component ${name} has unformatted Go files"
-              echo "$unformatted"
-              exit 1
-            fi
-            GOFLAGS=-mod=readonly go vet ./...
-            popd >/dev/null
-          }
-
-          component_root="$RUNNER_TEMP/matrix-components"
-          mkdir -p "$component_root"
-
-          while IFS=$'\t' read -r name repo version; do
-            if [[ "$name" == "i2pd" ]]; then
-              continue
-            fi
-
-            if [[ "$name" == "diagon" ]]; then
-              run_go_static_checks "$name" "$PWD"
-              continue
-            fi
-
-            destination="$component_root/$name"
-            checkout_component "$name" "$repo" "$version" "$destination"
-            run_go_static_checks "$name" "$destination"
-          done < <(echo '${{ toJson(matrix.components) }}' | jq -r 'to_entries[] | [.key, .value.repo, .value.version] | @tsv')
+        env:
+          COMPONENTS_JSON: ${{ toJson(matrix.components) }}
+        run: bash .github/scripts/run-matrix-static-checks.sh
 
       - name: Upload stage matrix metadata
         uses: actions/upload-artifact@v4
@@ -177,64 +85,22 @@ jobs:
           go-version: ${{ matrix.go_version }}
 
       - name: Build diagonctl
-        run: |
-          mkdir -p artifacts/bin
-          docker run --rm \
-            -e STORE_BUILD_INPUT='${{ matrix.store_build_input }}' \
-            -e PAYWALL_BUILD_INPUT='${{ matrix.paywall_build_input }}' \
-            -v "$PWD":/workspace \
-            -w /workspace \
-            golang:${{ matrix.go_version }}-${{ matrix.debian_codename }} \
-            bash -lc '
-              set -euo pipefail
-              mkdir -p artifacts/bin
-              go build -o artifacts/bin/diagonctl ./cmd/diagonctl
-              GOBIN=/workspace/artifacts/bin go install "$STORE_BUILD_INPUT"
-              GOBIN=/workspace/artifacts/bin go install "$PAYWALL_BUILD_INPUT"
-            '
-
-          test -x artifacts/bin/diagonctl
-          test -x artifacts/bin/store
-          test -x artifacts/bin/paywall
+        env:
+          GO_VERSION: ${{ matrix.go_version }}
+          DEBIAN_CODENAME: ${{ matrix.debian_codename }}
+          STORE_BUILD_INPUT: ${{ matrix.store_build_input }}
+          PAYWALL_BUILD_INPUT: ${{ matrix.paywall_build_input }}
+        run: bash .github/scripts/build-artifacts.sh
 
       - name: Emit build metadata
-        run: |
-          mkdir -p artifacts/metadata
-          cat > artifacts/metadata/build-metadata.json <<EOF
-          {
-            "environment": "${{ matrix.environment }}",
-            "debian_version": "${{ matrix.debian_version }}",
-            "debian_codename": "${{ matrix.debian_codename }}",
-            "package_dependencies": ${{ toJson(matrix.package_dependencies) }},
-            "components": {
-              "diagon": {
-                "repo": "${{ matrix.diagon_repo }}",
-                "version": "${{ matrix.diagon_version }}",
-                "build_input": "${{ matrix.diagon_build_input }}",
-                "artifact": "artifacts/bin/diagonctl"
-              },
-              "store": {
-                "repo": "${{ matrix.store_repo }}",
-                "version": "${{ matrix.store_version }}",
-                "build_input": "${{ matrix.store_build_input }}",
-                "artifact": "artifacts/bin/store"
-              },
-              "paywall": {
-                "repo": "${{ matrix.paywall_repo }}",
-                "version": "${{ matrix.paywall_version }}",
-                "build_input": "${{ matrix.paywall_build_input }}",
-                "artifact": "artifacts/bin/paywall"
-              },
-              "i2pd": {
-                "repo": "${{ matrix.i2pd_repo }}",
-                "version": "${{ matrix.i2pd_version }}",
-                "build_input": "${{ matrix.i2pd_build_input }}",
-                "artifact": "debian-package"
-              }
-            },
-            "build_image": "golang:${{ matrix.go_version }}-${{ matrix.debian_codename }}"
-          }
-          EOF
+        env:
+          ENVIRONMENT: ${{ matrix.environment }}
+          DEBIAN_VERSION: ${{ matrix.debian_version }}
+          DEBIAN_CODENAME: ${{ matrix.debian_codename }}
+          GO_VERSION: ${{ matrix.go_version }}
+          PACKAGE_DEPENDENCIES: ${{ toJson(matrix.package_dependencies) }}
+          COMPONENTS_JSON: ${{ toJson(matrix.components) }}
+        run: bash .github/scripts/emit-build-metadata.sh
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -265,67 +131,9 @@ jobs:
           go-version: ${{ matrix.go_version }}
 
       - name: Run Go unit tests
-        run: |
-          set -euo pipefail
-
-          checkout_component() {
-            local name="$1"
-            local repo="$2"
-            local version="$3"
-            local destination="$4"
-
-            rm -rf "$destination"
-            git clone --depth 1 --branch "$version" "https://github.com/${repo}.git" "$destination" 2>/dev/null && return 0
-
-            rm -rf "$destination"
-            git clone --depth 1 "https://github.com/${repo}.git" "$destination"
-            git -C "$destination" checkout "$version"
-          }
-
-          assert_lockfiles_clean() {
-            local name="$1"
-            local path="$2"
-            local dirty=0
-
-            pushd "$path" >/dev/null
-            for lockfile in go.mod go.sum; do
-              if [[ -f "$lockfile" ]] && ! git diff --exit-code -- "$lockfile" >/dev/null; then
-                echo "::error::component ${name} modified ${lockfile} during readonly test execution"
-                dirty=1
-              fi
-            done
-            popd >/dev/null
-
-            [[ "$dirty" -eq 0 ]]
-          }
-
-          run_go_tests() {
-            local name="$1"
-            local path="$2"
-
-            pushd "$path" >/dev/null
-            GOFLAGS=-mod=readonly go test ./...
-            popd >/dev/null
-            assert_lockfiles_clean "$name" "$path"
-          }
-
-          component_root="$RUNNER_TEMP/matrix-components"
-          mkdir -p "$component_root"
-
-          while IFS=$'\t' read -r name repo version; do
-            if [[ "$name" == "i2pd" ]]; then
-              continue
-            fi
-
-            if [[ "$name" == "diagon" ]]; then
-              run_go_tests "$name" "$PWD"
-              continue
-            fi
-
-            destination="$component_root/$name"
-            checkout_component "$name" "$repo" "$version" "$destination"
-            run_go_tests "$name" "$destination"
-          done < <(echo '${{ toJson(matrix.components) }}' | jq -r 'to_entries[] | [.key, .value.repo, .value.version] | @tsv')
+        env:
+          COMPONENTS_JSON: ${{ toJson(matrix.components) }}
+        run: bash .github/scripts/run-matrix-unit-tests.sh
 
   stage-4-integration-bootstrap:
     name: Stage 4 - Integration bootstrap (${{ matrix.environment }})
@@ -346,64 +154,7 @@ jobs:
           go-version: ${{ matrix.go_version }}
 
       - name: Bootstrap local integration stubs
-        run: |
-          mkdir -p artifacts .tmp
-          cat > .tmp/stub_service.py <<'PY'
-          import argparse
-          import time
-          from http.server import BaseHTTPRequestHandler, HTTPServer
-
-
-          class Handler(BaseHTTPRequestHandler):
-              ready_after = 0.0
-
-              def do_GET(self):
-                  if time.monotonic() < self.ready_after:
-                      self.send_response(503)
-                      self.send_header("Content-Type", "application/json")
-                      self.end_headers()
-                      self.wfile.write(b'{"status":"starting"}')
-                      return
-
-                  self.send_response(200)
-                  self.send_header("Content-Type", "application/json")
-                  self.end_headers()
-                  self.wfile.write(b'{"status":"ok"}')
-
-              def log_message(self, format, *args):
-                  return
-
-
-          if __name__ == "__main__":
-              parser = argparse.ArgumentParser()
-              parser.add_argument("--port", type=int, required=True)
-              parser.add_argument("--ready-delay", type=float, default=0.0)
-              args = parser.parse_args()
-
-              Handler.ready_after = time.monotonic() + max(args.ready_delay, 0.0)
-              server = HTTPServer(("127.0.0.1", args.port), Handler)
-              server.serve_forever()
-          PY
-
-          nohup python3 .tmp/stub_service.py --port 7070 > artifacts/i2pd.log 2>&1 &
-          echo $! > .tmp/i2pd.pid
-          sleep 1
-
-          nohup python3 .tmp/stub_service.py --port 8081 > artifacts/paywall.log 2>&1 &
-          echo $! > .tmp/paywall.pid
-          sleep 1
-
-          nohup python3 .tmp/stub_service.py --port 8080 > artifacts/store.log 2>&1 &
-          echo $! > .tmp/store.pid
-          sleep 1
-
-          nohup python3 .tmp/stub_service.py --port 18080 > artifacts/store-tunnel.log 2>&1 &
-          echo $! > .tmp/store-tunnel.pid
-          sleep 1
-
-          nohup python3 .tmp/stub_service.py --port 18081 > artifacts/paywall-tunnel.log 2>&1 &
-          echo $! > .tmp/paywall-tunnel.pid
-          sleep 1
+        run: bash .github/scripts/bootstrap-integration-stubs.sh
 
       - name: Stage 4 live readiness probe
         run: |
@@ -419,37 +170,13 @@ jobs:
             --format json | tee artifacts/service-probe.json
 
       - name: Stage 4 readiness-timeout regression
-        run: |
-          kill "$(cat .tmp/paywall.pid)"
-          rm -f .tmp/paywall.pid
-
-          if go run ./cmd/diagonctl \
-            --profile-dir profiles \
-            --profile-name myprofile \
-            --policy-file profiles/validation-policy.json \
-            --bootstrap-profile-file profiles/local-single-host-bootstrap.json \
-            --service-contract-file "${{ matrix.service_contract_primary }}" \
-            --probe-live \
-            --probe-timeout 1s \
-            --probe-interval 100ms \
-            --format json > artifacts/service-probe-timeout.json; then
-            echo "expected readiness-timeout probe to fail when paywall is unavailable"
-            exit 1
-          fi
-
-          jq -e '.status == "failed"' artifacts/service-probe-timeout.json >/dev/null
-          jq -e '.probe_live == true' artifacts/service-probe-timeout.json >/dev/null
-          jq -e '.aggregated_health.ready == false' artifacts/service-probe-timeout.json >/dev/null
-          jq -e 'any(.errors[]; contains("service \"paywall\" failed runtime readiness probe within 1s"))' artifacts/service-probe-timeout.json >/dev/null
+        env:
+          SERVICE_CONTRACT_PRIMARY: ${{ matrix.service_contract_primary }}
+        run: bash .github/scripts/stage4-readiness-timeout-regression.sh
 
       - name: Cleanup integration stubs
         if: always()
-        run: |
-          for pid_file in .tmp/*.pid; do
-            if [ -f "$pid_file" ]; then
-              kill "$(cat "$pid_file")" || true
-            fi
-          done
+        run: bash .github/scripts/cleanup-integration-stubs.sh
 
       - name: Upload integration probe artifacts
         if: always()
@@ -485,23 +212,10 @@ jobs:
           go-version: ${{ matrix.go_version }}
 
       - name: Validate profile and matrix service contract fixtures
-        run: |
-          mkdir -p artifacts/contract-tests
-          mapfile -t fixtures < <(
-            jq -rn \
-              --arg primary '${{ matrix.service_contract_primary }}' \
-              --argjson contracts '${{ toJson(matrix.service_contract_fixtures) }}' \
-              '([$primary] + $contracts | unique[])[]'
-          )
-          for fixture in "${fixtures[@]}"; do
-            name=$(basename "$fixture" .json)
-            go run ./cmd/diagonctl \
-              --profile-dir profiles \
-              --profile-name myprofile \
-              --policy-file profiles/validation-policy.json \
-              --service-contract-file "$fixture" \
-              --format json | tee "artifacts/contract-tests/${name}.json"
-          done
+        env:
+          PRIMARY: ${{ matrix.service_contract_primary }}
+          CONTRACTS_JSON: ${{ toJson(matrix.service_contract_fixtures) }}
+        run: bash .github/scripts/validate-contract-fixtures.sh
 
       - name: Upload contract validation result
         uses: actions/upload-artifact@v4
@@ -546,238 +260,13 @@ jobs:
 
       - name: Execute transaction smoke harness
         run: |
-          mkdir -p artifacts .tmp
-          cat > .tmp/smoke_services.py <<'PY'
-          import json
-          import threading
-          from http.server import BaseHTTPRequestHandler, HTTPServer
-          from urllib.parse import urlparse
-          from urllib.request import Request, urlopen
-
-
-          def parse_host_port(value):
-              host, port = value.rsplit(":", 1)
-              return host, int(port)
-
-
-          def host_port_path(value):
-              parsed = urlparse(value)
-              return parsed.hostname, parsed.port, parsed.path or "/"
-
-
-          with open("artifacts/stage-6-smoke-plan.json", "r", encoding="utf-8") as fh:
-              plan = json.load(fh)
-
-          services = {item["service"]: item for item in plan["service_endpoints"]}
-          tunnels = {item["target_service"]: item for item in plan["tunnel_endpoints"]}
-
-          i2pd_host, i2pd_port = parse_host_port(services["i2pd"]["listen"])
-          paywall_host, paywall_port = parse_host_port(services["paywall"]["listen"])
-          store_host, store_port = parse_host_port(services["store"]["listen"])
-
-          _, _, i2pd_health_path = host_port_path(services["i2pd"]["health_url"])
-          _, _, paywall_health_path = host_port_path(services["paywall"]["health_url"])
-          _, _, store_health_path = host_port_path(services["store"]["health_url"])
-          _, _, paywall_smoke_path = host_port_path(plan["paywall_validation"]["url"])
-          _, _, store_checkout_path = host_port_path(plan["marketplace_access"]["url"])
-
-          store_tunnel_host, store_tunnel_port = parse_host_port(tunnels["store"]["listen"])
-          paywall_tunnel_host, paywall_tunnel_port = parse_host_port(tunnels["paywall"]["listen"])
-
-
-          class PaywallHandler(BaseHTTPRequestHandler):
-              def do_GET(self):
-                  if self.path != paywall_health_path:
-                      self.send_response(404)
-                      self.end_headers()
-                      return
-                  self.send_response(200)
-                  self.send_header("Content-Type", "application/json")
-                  self.end_headers()
-                  self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
-
-              def do_POST(self):
-                  if self.path != paywall_smoke_path:
-                      self.send_response(404)
-                      self.end_headers()
-                      return
-                  self.send_response(200)
-                  self.send_header("Content-Type", "application/json")
-                  self.end_headers()
-                  self.wfile.write(json.dumps({"settled": True}).encode("utf-8"))
-
-              def log_message(self, *_args):
-                  return
-
-
-          class StoreHandler(BaseHTTPRequestHandler):
-              def do_GET(self):
-                  if self.path != store_health_path:
-                      self.send_response(404)
-                      self.end_headers()
-                      return
-                  self.send_response(200)
-                  self.send_header("Content-Type", "application/json")
-                  self.end_headers()
-                  self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
-
-              def do_POST(self):
-                  if self.path != store_checkout_path:
-                      self.send_response(404)
-                      self.end_headers()
-                      return
-
-                  req = Request(plan["paywall_validation"]["url"], method="POST", data=b"{}")
-                  with urlopen(req, timeout=5) as resp:
-                      payload = json.loads(resp.read().decode("utf-8"))
-
-                  self.send_response(200)
-                  self.send_header("Content-Type", "application/json")
-                  self.end_headers()
-                  self.wfile.write(json.dumps({"checkout": "ok", "paywall": payload}).encode("utf-8"))
-
-              def log_message(self, *_args):
-                  return
-
-
-          class I2PDHandler(BaseHTTPRequestHandler):
-              def do_GET(self):
-                  if self.path != i2pd_health_path:
-                      self.send_response(404)
-                      self.end_headers()
-                      return
-                  self.send_response(200)
-                  self.send_header("Content-Type", "application/json")
-                  self.end_headers()
-                  self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
-
-              def log_message(self, *_args):
-                  return
-
-
-          def run_server(server):
-              server.serve_forever()
-
-
-          def start_origin_servers():
-              servers = {
-                  "i2pd": HTTPServer((i2pd_host, i2pd_port), I2PDHandler),
-                  "paywall": HTTPServer((paywall_host, paywall_port), PaywallHandler),
-                  "store": HTTPServer((store_host, store_port), StoreHandler),
-              }
-              for server in servers.values():
-                  threading.Thread(target=run_server, args=(server,), daemon=True).start()
-              return servers
-
-
-          class ProxyHandler(BaseHTTPRequestHandler):
-              target_host = ""
-              target_port = 0
-
-              def do_GET(self):
-                  with urlopen(f"http://{self.target_host}:{self.target_port}{self.path}", timeout=5) as resp:
-                      body = resp.read()
-                      self.send_response(resp.status)
-                      for key, value in resp.headers.items():
-                          if key.lower() != "transfer-encoding":
-                              self.send_header(key, value)
-                      self.end_headers()
-                      self.wfile.write(body)
-
-              def do_POST(self):
-                  body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-                  request = Request(f"http://{self.target_host}:{self.target_port}{self.path}", method="POST", data=body)
-                  with urlopen(request, timeout=5) as resp:
-                      payload = resp.read()
-                      self.send_response(resp.status)
-                      for key, value in resp.headers.items():
-                          if key.lower() != "transfer-encoding":
-                              self.send_header(key, value)
-                      self.end_headers()
-                      self.wfile.write(payload)
-
-              def log_message(self, *_args):
-                  return
-
-
-          def start_proxy_server(listen_host, listen_port, target_host, target_port):
-              handler = type(
-                  f"Proxy_{listen_port}",
-                  (ProxyHandler,),
-                  {"target_host": target_host, "target_port": target_port},
-              )
-              server = HTTPServer((listen_host, listen_port), handler)
-              threading.Thread(target=run_server, args=(server,), daemon=True).start()
-              return server
-
-
-          def stop_servers(servers):
-              for server in servers.values():
-                  server.shutdown()
-                  server.server_close()
-
-
-          origins = start_origin_servers()
-          proxies = {
-              "store": start_proxy_server(store_tunnel_host, store_tunnel_port, store_host, store_port),
-              "paywall": start_proxy_server(paywall_tunnel_host, paywall_tunnel_port, paywall_host, paywall_port),
-          }
-
-          for check in plan["health_checks"]:
-              req = Request(check["url"], method=check["method"])
-              with urlopen(req, timeout=5) as resp:
-                  assert resp.status == check["expected_status"]
-
-          req = Request(plan["marketplace_access"]["url"], method=plan["marketplace_access"]["method"], data=b"{}")
-          with urlopen(req, timeout=5) as resp:
-              initial_result = {
-                  "status_code": resp.status,
-                  "response": json.loads(resp.read().decode("utf-8")),
-                  "wallet_mode": plan["wallet_mode"],
-              }
-
-          stop_servers({**origins, **proxies})
-          origins = start_origin_servers()
-          proxies = {
-              "store": start_proxy_server(store_tunnel_host, store_tunnel_port, store_host, store_port),
-              "paywall": start_proxy_server(paywall_tunnel_host, paywall_tunnel_port, paywall_host, paywall_port),
-          }
-
-          for check in plan["graceful_restart"]["post_restart_checks"]:
-              req = Request(check["url"], method=check["method"])
-              with urlopen(req, timeout=5) as resp:
-                  assert resp.status == check["expected_status"]
-
-          req = Request(plan["marketplace_access"]["url"], method=plan["marketplace_access"]["method"], data=b"{}")
-          with urlopen(req, timeout=5) as resp:
-              restart_result = {
-                  "status_code": resp.status,
-                  "response": json.loads(resp.read().decode("utf-8")),
-              }
-
-          smoke_result = {
-              "initial": initial_result,
-              "after_restart": restart_result,
-              "restart_validated": True,
-          }
-
-          with open("artifacts/stage-6-smoke.json", "w", encoding="utf-8") as fh:
-              json.dump(smoke_result, fh, indent=2)
-
-          assert smoke_result["initial"]["status_code"] == 200
-          assert smoke_result["initial"]["response"]["paywall"]["settled"] is True
-          assert smoke_result["after_restart"]["status_code"] == 200
-          assert smoke_result["after_restart"]["response"]["paywall"]["settled"] is True
-
-          stop_servers({**origins, **proxies})
-          PY
-
-          python3 .tmp/smoke_services.py
+          go run ./cmd/diagon-smoke-harness \
+            --plan artifacts/stage-6-smoke-plan.json \
+            --output artifacts/stage-6-smoke.json \
+            --expected-wallet-mode stubbed
 
       - name: Assert stubbed wallet mode for CI smoke
-        run: |
-          jq -e '.wallet_mode == "stubbed"' artifacts/stage-6-smoke-plan.json >/dev/null
-          jq -e '.initial.wallet_mode == "stubbed"' artifacts/stage-6-smoke.json >/dev/null
+        run: bash .github/scripts/assert-stubbed-wallet-mode.sh
 
       - name: Upload smoke artifact
         uses: actions/upload-artifact@v4
@@ -829,45 +318,17 @@ jobs:
             --format json > artifacts/stage-7-dependency-metadata.json
 
       - name: Verify Debian build toolchain installability
-        run: |
-          manifest=artifacts/debian-dependency-manifest.json
-          expected_codename=$(jq -r '.debian_codename' "$manifest")
-          if [[ "$expected_codename" != "${{ matrix.debian_codename }}" ]]; then
-            echo "dependency manifest codename mismatch: expected ${{ matrix.debian_codename }}, got ${expected_codename}"
-            exit 1
-          fi
-
-          mapfile -t deps < <(jq -r '.package_dependencies[].name' "$manifest")
-          if [[ "${#deps[@]}" -eq 0 ]]; then
-            echo "dependency manifest contains no package dependencies"
-            exit 1
-          fi
-
-          apt-get install -y "${deps[@]}"
-
-          for dep in "${deps[@]}"; do
-            dpkg-query -W -f='${Status} ${Version}\n' "$dep" | grep -q '^install ok installed '
-          done
-
-          jq -e '.component_package_constraints[] | select(.component == "i2pd") | .codename == "${{ matrix.debian_codename }}"' "$manifest" >/dev/null
+        env:
+          MATRIX_CODENAME: ${{ matrix.debian_codename }}
+        run: bash .github/scripts/verify-debian-toolchain.sh
 
       - name: Import Debian archive keys (best effort)
-        run: |
-          gpg --keyserver keyserver.ubuntu.com --recv-keys B8E5F13176D2A7A75220028078DBA3BC47EF2265 || true
-          gpg --keyserver keyserver.ubuntu.com --recv-keys B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 || true
-          gpg --export B8E5F13176D2A7A75220028078DBA3BC47EF2265 B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 | tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null || true
+        run: bash .github/scripts/import-debian-keys.sh
 
       - name: Build Debian installer ISO
-        run: |
-          mkdir -p build
-          cp -r profiles build/
-          cd build
-          build-simple-cdd --profiles myprofile --dist ${{ matrix.debian_codename }}
-
-      - name: Verify packaging outputs
-        run: |
-          test -d build/images
-          ls -1 build/images/*.iso > build/iso-list.txt
+        env:
+          MATRIX_CODENAME: ${{ matrix.debian_codename }}
+        run: bash .github/scripts/build-debian-iso.sh
 
       - name: Upload packaging artifacts
         uses: actions/upload-artifact@v4
@@ -912,18 +373,7 @@ jobs:
             --format json > artifacts/stage-7b-fallback-metadata.json
 
       - name: Validate fallback bundle content
-        run: |
-          bundle=artifacts/debian-compose-bundle.json
-          jq -e '.bundle_name == "debian-compose-fallback"' "$bundle" >/dev/null
-          jq -e '.compose.path == "/opt/diagon/compose/compose.yaml"' "$bundle" >/dev/null
-          jq -e '.systemd_unit.path == "/etc/systemd/system/diagon-compose.service"' "$bundle" >/dev/null
-          jq -e '.environment_template.path == "/etc/diagon/compose/diagon-compose.env.example"' "$bundle" >/dev/null
-          jq -e '.manual_install_steps | length >= 5' "$bundle" >/dev/null
-          jq -r '.compose.content' "$bundle" | grep -q 'container_name: diagon-i2pd'
-          jq -r '.compose.content' "$bundle" | grep -q 'container_name: diagon-paywall'
-          jq -r '.compose.content' "$bundle" | grep -q 'container_name: diagon-store'
-          jq -r '.systemd_unit.content' "$bundle" | grep -q 'ExecStart=/usr/bin/docker compose'
-          jq -r '.manual_install_guide.content' "$bundle" | grep -q 'systemctl enable --now diagon-compose.service'
+        run: bash .github/scripts/validate-fallback-bundle.sh
 
       - name: Upload fallback bundle artifacts
         uses: actions/upload-artifact@v4
