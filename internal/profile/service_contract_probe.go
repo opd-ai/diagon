@@ -19,6 +19,22 @@ type RuntimeProbeOptions struct {
 	SequenceJitter time.Duration
 }
 
+type ServiceComponentHealth struct {
+	Name      string   `json:"name"`
+	Listen    string   `json:"listen"`
+	HealthURL string   `json:"health_url"`
+	Ready     bool     `json:"ready"`
+	ReadyAt   string   `json:"ready_at,omitempty"`
+	Errors    []string `json:"errors,omitempty"`
+}
+
+type ServiceHealthAggregation struct {
+	Ready      bool                     `json:"ready"`
+	Components []ServiceComponentHealth `json:"components"`
+	Errors     []string                 `json:"errors,omitempty"`
+	Warnings   []string                 `json:"warnings,omitempty"`
+}
+
 func DefaultRuntimeProbeOptions() RuntimeProbeOptions {
 	return RuntimeProbeOptions{
 		Timeout:        30 * time.Second,
@@ -90,13 +106,29 @@ type serviceProbeOutcome struct {
 }
 
 func probeServiceReadiness(services []ServiceDefinition, options RuntimeProbeOptions) Result {
-	result := Result{}
-	if len(services) == 0 {
-		result.Errors = append(result.Errors, "service contract must define at least one service")
-		result.Sort()
-		return result
+	aggregation := AggregateServiceHealth(services, options)
+	result := Result{
+		Errors:   append([]string{}, aggregation.Errors...),
+		Warnings: append([]string{}, aggregation.Warnings...),
+	}
+	result.Sort()
+	return result
+}
+
+func AggregateServiceHealth(services []ServiceDefinition, options RuntimeProbeOptions) ServiceHealthAggregation {
+	aggregation := ServiceHealthAggregation{
+		Ready:      true,
+		Components: make([]ServiceComponentHealth, 0, len(services)),
 	}
 
+	if len(services) == 0 {
+		aggregation.Ready = false
+		aggregation.Errors = append(aggregation.Errors, "service contract must define at least one service")
+		sort.Strings(aggregation.Errors)
+		return aggregation
+	}
+
+	options = options.normalize()
 	start := time.Now()
 	deadline := start.Add(options.Timeout)
 
@@ -119,15 +151,24 @@ func probeServiceReadiness(services []ServiceDefinition, options RuntimeProbeOpt
 	wg.Wait()
 
 	for _, service := range services {
+		component := ServiceComponentHealth{
+			Name:      service.Name,
+			Listen:    service.Listen,
+			HealthURL: service.HealthURL,
+		}
+
 		outcome := outcomes[service.Name]
 		if outcome.err != nil {
-			result.Errors = append(result.Errors, outcome.err.Error())
+			component.Ready = false
+			component.Errors = append(component.Errors, outcome.err.Error())
+			aggregation.Errors = append(aggregation.Errors, outcome.err.Error())
+			aggregation.Ready = false
+		} else {
+			component.Ready = true
+			component.ReadyAt = outcome.readyAt.Format(time.RFC3339Nano)
 		}
-	}
 
-	if result.HasErrors() {
-		result.Sort()
-		return result
+		aggregation.Components = append(aggregation.Components, component)
 	}
 
 	for _, service := range services {
@@ -142,7 +183,9 @@ func probeServiceReadiness(services []ServiceDefinition, options RuntimeProbeOpt
 				continue
 			}
 			if depOutcome.readyAt.After(serviceOutcome.readyAt.Add(options.SequenceJitter)) {
-				result.Errors = append(result.Errors, fmt.Sprintf("service %q reported readiness before dependency %q (service=%s dependency=%s)", service.Name, depName, serviceOutcome.readyAt.Format(time.RFC3339Nano), depOutcome.readyAt.Format(time.RFC3339Nano)))
+				err := fmt.Sprintf("service %q reported readiness before dependency %q (service=%s dependency=%s)", service.Name, depName, serviceOutcome.readyAt.Format(time.RFC3339Nano), depOutcome.readyAt.Format(time.RFC3339Nano))
+				aggregation.Errors = append(aggregation.Errors, err)
+				aggregation.Ready = false
 			}
 		}
 	}
@@ -161,12 +204,16 @@ func probeServiceReadiness(services []ServiceDefinition, options RuntimeProbeOpt
 		prevReady := outcomes[prev.Name].readyAt
 		currReady := outcomes[curr.Name].readyAt
 		if !prevReady.IsZero() && !currReady.IsZero() && currReady.Add(options.SequenceJitter).Before(prevReady) {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("service %q became ready before lower startup_order service %q (orders %d -> %d)", curr.Name, prev.Name, prev.StartupOrder, curr.StartupOrder))
+			aggregation.Warnings = append(aggregation.Warnings, fmt.Sprintf("service %q became ready before lower startup_order service %q (orders %d -> %d)", curr.Name, prev.Name, prev.StartupOrder, curr.StartupOrder))
 		}
 	}
 
-	result.Sort()
-	return result
+	sort.Slice(aggregation.Components, func(i, j int) bool {
+		return aggregation.Components[i].Name < aggregation.Components[j].Name
+	})
+	sort.Strings(aggregation.Errors)
+	sort.Strings(aggregation.Warnings)
+	return aggregation
 }
 
 func waitForServiceReady(service ServiceDefinition, options RuntimeProbeOptions, deadline time.Time) (time.Time, error) {

@@ -10,6 +10,56 @@ import (
 	"time"
 )
 
+func TestAggregateServiceHealthReady(t *testing.T) {
+	t.Parallel()
+
+	i2pdServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(i2pdServer.Close)
+
+	paywallServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(paywallServer.Close)
+
+	services := []ServiceDefinition{
+		{Name: "i2pd", Listen: mustAddr(t, i2pdServer.URL), HealthURL: i2pdServer.URL, StartupOrder: 1},
+		{Name: "paywall", Listen: mustAddr(t, paywallServer.URL), HealthURL: paywallServer.URL, DependsOn: []string{"i2pd"}, StartupOrder: 2},
+	}
+
+	aggregation := AggregateServiceHealth(services, RuntimeProbeOptions{Timeout: 2 * time.Second, Interval: 20 * time.Millisecond})
+	if !aggregation.Ready {
+		t.Fatalf("expected aggregate health to be ready, got errors: %v", aggregation.Errors)
+	}
+	if len(aggregation.Components) != 2 {
+		t.Fatalf("expected 2 component entries, got %d", len(aggregation.Components))
+	}
+}
+
+func TestAggregateServiceHealthFailsWhenAnyComponentFails(t *testing.T) {
+	t.Parallel()
+
+	i2pdServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(i2pdServer.Close)
+
+	missingPort := freeTCPPort(t)
+	services := []ServiceDefinition{
+		{Name: "i2pd", Listen: mustAddr(t, i2pdServer.URL), HealthURL: i2pdServer.URL, StartupOrder: 1},
+		{Name: "paywall", Listen: "127.0.0.1:" + missingPort, HealthURL: "http://127.0.0.1:" + missingPort + "/healthz", DependsOn: []string{"i2pd"}, StartupOrder: 2},
+	}
+
+	aggregation := AggregateServiceHealth(services, RuntimeProbeOptions{Timeout: 250 * time.Millisecond, Interval: 20 * time.Millisecond})
+	if aggregation.Ready {
+		t.Fatal("expected aggregate health to fail when one component is not ready")
+	}
+	if len(aggregation.Errors) == 0 {
+		t.Fatal("expected aggregate health to include errors")
+	}
+}
+
 func TestProbeServiceContractDefinitionSuccess(t *testing.T) {
 	t.Parallel()
 

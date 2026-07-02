@@ -47,10 +47,10 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] Validate Paywall launches and passes health check with stubbed wallet connectivity if needed. Owner: Diagon
 
 ### Phase 2: Diagon Integration Wiring
-- [ ] Implement Diagon-managed config injection for Store, Paywall, and i2pd paths/ports. Owner: TBD
-- [ ] Implement Diagon health aggregator that fails when any component readiness check fails. Owner: TBD
-- [ ] Add integration test proving Store can call Paywall through configured local endpoints. Owner: TBD
-- [ ] Add integration test proving traffic path works with i2pd-enabled routing configuration. Owner: TBD
+- [x] Implement Diagon-managed config injection for Store, Paywall, and i2pd paths/ports. Owner: Diagon
+- [x] Implement Diagon health aggregator that fails when any component readiness check fails. Owner: Diagon
+- [x] Add integration test proving Store can call Paywall through configured local endpoints. Owner: Diagon
+- [x] Add integration test proving traffic path works with i2pd-enabled routing configuration. Owner: Diagon
 
 ### Phase 3: Debian Service and Packaging Baseline
 - [ ] Define package layout expectations for binaries, configs, logs, and state directories. Owner: TBD
@@ -98,3 +98,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Replaced stubbed Store/Paywall CI matrix entries with pinned upstream build inputs sourced from `.github/integration-matrix.json`, and wired Stage 5 contract tests to execute matrix-defined service-contract fixtures. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 0 contract freeze by pinning Debian baseline/dependency metadata in `.github/integration-matrix.json`, enforcing i2pd tunnel type and local port-mapping contract checks in `diagonctl`, and extending fixtures/tests to cover the frozen integration contract set. Owner: Diagon
 - [x] 2026-07-02: Completed Phase 1 local single-host bootstrap by adding `profiles/local-single-host-bootstrap.json`, validating deterministic startup/default local wiring and secret-only operator inputs in `diagonctl`, and extending live probes/CI Stage 4 to verify i2pd tunnel listener reachability plus Store/Paywall readiness under stubbed local bootstrap defaults. Owner: Diagon
+- [x] 2026-07-02: Completed Phase 2 Diagon integration wiring by adding generated config injection bundles for Store/Paywall/i2pd (`--emit-config-injection-file`), implementing explicit aggregated component health gating for runtime readiness checks, and adding integration tests for Store->Paywall local endpoint calls plus i2pd-routed traffic path validation. Owner: Diagon

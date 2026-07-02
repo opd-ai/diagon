@@ -88,6 +88,21 @@ go run ./cmd/diagonctl \
 	--format json
 ```
 
+### Generate injected component config bundle (Phase 2 wiring)
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--service-contract-file profiles/service-contract.json \
+	--emit-config-injection-file /tmp/diagon-config-injection.json \
+	--format json
+```
+
+Use `--emit-config-injection-file -` to write the generated bundle to stdout.
+
 The service contract validator enforces:
 
 - Required service definitions for `i2pd`, `store`, and `paywall`
@@ -114,6 +129,8 @@ When `--probe-live` is enabled, `diagonctl` also performs runtime checks:
 - TCP listener reachability for each expected i2pd tunnel listener
 - Dependency sequencing validation (`depends_on` services must become ready first)
 - Startup-order signal warnings when higher-order services become ready before lower-order services
+
+Runtime probe output now includes an aggregated component health view (`aggregated_health`) in JSON mode. This aggregation is marked failed when any component readiness probe fails.
 
 ### Strict mode (warnings become errors)
 

@@ -19,6 +19,7 @@ func main() {
 		policyPath    string
 		contractPath  string
 		bootstrapPath string
+		configOutPath string
 		probeLive     bool
 		probeTimeout  time.Duration
 		probeEvery    time.Duration
@@ -31,6 +32,7 @@ func main() {
 	flag.StringVar(&policyPath, "policy-file", "", "optional JSON policy file for required packages and preseed keys")
 	flag.StringVar(&contractPath, "service-contract-file", "", "optional JSON service integration contract file for Store/Paywall/i2pd checks")
 	flag.StringVar(&bootstrapPath, "bootstrap-profile-file", "", "optional JSON local bootstrap profile for single-host startup defaults and secrets")
+	flag.StringVar(&configOutPath, "emit-config-injection-file", "", "optional output path for generated Store/Paywall/i2pd injected config bundle (use '-' for stdout)")
 	flag.BoolVar(&probeLive, "probe-live", false, "actively probe service health/listen endpoints from service contract")
 	flag.DurationVar(&probeTimeout, "probe-timeout", 30*time.Second, "max time to wait for live service probes")
 	flag.DurationVar(&probeEvery, "probe-interval", 500*time.Millisecond, "retry interval for live service probes")
@@ -60,6 +62,7 @@ func main() {
 		bootstrapProfile     *profile.BootstrapProfile
 		resolvedContractPath string
 		loadedContract       *profile.ServiceContract
+		aggregatedHealth     *profile.ServiceHealthAggregation
 	)
 
 	if !strings.EqualFold(strings.TrimSpace(bootstrapPath), "") {
@@ -92,6 +95,11 @@ func main() {
 
 		serviceResult := profile.ValidateServiceContractDefinition(contract)
 		if probeLive {
+			health := profile.AggregateServiceHealth(contract.Services, profile.RuntimeProbeOptions{
+				Timeout:  probeTimeout,
+				Interval: probeEvery,
+			})
+			aggregatedHealth = &health
 			serviceResult = profile.ProbeServiceContractDefinition(contract, profile.RuntimeProbeOptions{
 				Timeout:  probeTimeout,
 				Interval: probeEvery,
@@ -118,6 +126,24 @@ func main() {
 		result.Sort()
 	}
 
+	trimmedConfigOut := strings.TrimSpace(configOutPath)
+	if trimmedConfigOut != "" {
+		if bootstrapProfile == nil || loadedContract == nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-config-injection-file requires both bootstrap and service contract inputs"), &result)
+			os.Exit(2)
+		}
+
+		bundle, buildErr := profile.BuildInjectedConfigBundle(*bootstrapProfile, *loadedContract)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteInjectedConfigBundle(trimmedConfigOut, bundle); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
 	if strings.EqualFold(outputFmt, "json") {
 		status := "ok"
 		if result.HasErrors() || (strict && len(result.Warnings) > 0) {
@@ -125,24 +151,28 @@ func main() {
 		}
 
 		payload := struct {
-			Status               string   `json:"status"`
-			ProfileDir           string   `json:"profile_dir"`
-			ProfileName          string   `json:"profile_name"`
-			BootstrapProfileFile string   `json:"bootstrap_profile_file,omitempty"`
-			ServiceContractFile  string   `json:"service_contract_file,omitempty"`
-			ProbeLive            bool     `json:"probe_live"`
-			ProbeTimeout         string   `json:"probe_timeout,omitempty"`
-			ProbeInterval        string   `json:"probe_interval,omitempty"`
-			Strict               bool     `json:"strict"`
-			Errors               []string `json:"errors"`
-			Warnings             []string `json:"warnings"`
+			Status               string                            `json:"status"`
+			ProfileDir           string                            `json:"profile_dir"`
+			ProfileName          string                            `json:"profile_name"`
+			BootstrapProfileFile string                            `json:"bootstrap_profile_file,omitempty"`
+			ServiceContractFile  string                            `json:"service_contract_file,omitempty"`
+			ConfigInjectionFile  string                            `json:"config_injection_file,omitempty"`
+			ProbeLive            bool                              `json:"probe_live"`
+			ProbeTimeout         string                            `json:"probe_timeout,omitempty"`
+			ProbeInterval        string                            `json:"probe_interval,omitempty"`
+			AggregatedHealth     *profile.ServiceHealthAggregation `json:"aggregated_health,omitempty"`
+			Strict               bool                              `json:"strict"`
+			Errors               []string                          `json:"errors"`
+			Warnings             []string                          `json:"warnings"`
 		}{
 			Status:               status,
 			ProfileDir:           profileDir,
 			ProfileName:          profileName,
 			BootstrapProfileFile: strings.TrimSpace(bootstrapPath),
 			ServiceContractFile:  resolvedContractPath,
+			ConfigInjectionFile:  trimmedConfigOut,
 			ProbeLive:            probeLive,
+			AggregatedHealth:     aggregatedHealth,
 			Strict:               strict,
 			Errors:               result.Errors,
 			Warnings:             result.Warnings,
