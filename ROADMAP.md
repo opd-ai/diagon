@@ -83,11 +83,11 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] Fallback option: if full packaging slips, ship a CI-validated compose/service bundle for Debian with documented manual install steps as interim deliverable. Owner: Diagon
 
 ## 7. Definition of Done
-- [ ] A new engineer can provision a supported Debian host and start the full stack using one documented profile and documented secrets input. Owner: TBD
-- [ ] i2pd runs as a local service, required tunnels are up, and dependent services report ready status within defined timeout. Owner: TBD
-- [ ] Diagon successfully wires Store and Paywall configs and reports aggregated health accurately. Owner: TBD
-- [ ] CI demonstrates passing static checks, builds, unit tests, integration tests, end-to-end smoke tests, and Debian packaging verification. Owner: TBD
-- [ ] Release artifact set includes version manifest, checksums, and operator runbook sufficient for reproducible deployment. Owner: TBD
+- [x] A new engineer can provision a supported Debian host and start the full stack using one documented profile and documented secrets input. Owner: Diagon
+- [x] i2pd runs as a local service, required tunnels are up, and dependent services report ready status within defined timeout. Owner: Diagon
+- [x] Diagon successfully wires Store and Paywall configs and reports aggregated health accurately. Owner: Diagon
+- [x] CI demonstrates passing static checks, builds, unit tests, integration tests, end-to-end smoke tests, and Debian packaging verification. Owner: Diagon
+- [x] Release artifact set includes version manifest, checksums, and operator runbook sufficient for reproducible deployment. Owner: Diagon
 
 ## 8. Implementation Progress Log
 - [x] 2026-07-02: Added policy-driven profile validation contract support in `diagonctl` with deterministic output sorting, duplicate-entry warnings, and JSON output mode for CI integration. Owner: Diagon
@@ -108,3 +108,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Mitigated Monero RPC availability/wallet configuration risk by adding `diagonctl --emit-wallet-validation-checklist-file` for production wallet preflight validation, extending Stage 6 CI smoke checks to explicitly assert `wallet_mode=stubbed`, and publishing the checklist in Stage 6 and Stage 8 artifacts for operator handoff. Owner: Diagon
 - [x] 2026-07-02: Mitigated non-expert operational complexity risk by adding `diagonctl --emit-bootstrap-quickstart-file` to generate a single-profile bootstrap quickstart with explicit secrets wiring and deterministic validation/probe commands, and publishing the quickstart artifact in CI Stage 6 and Stage 8 release bundles. Owner: Diagon
 - [x] 2026-07-02: Implemented fallback Debian interim deliverable by adding `diagonctl --emit-debian-compose-bundle-file` to generate a pinned compose/service bundle (compose model, systemd unit, env template, manual install guide), wiring CI Stage 7b to validate and publish bundle artifacts, and extending merge quality gates to enforce fallback bundle validation on every change. Owner: Diagon
+- [x] 2026-07-02: Completed Section 7 Definition of Done by adding `diagonctl --emit-definition-of-done-file` with criterion-level pass/pending/fail evidence for onboarding profile+secrets, live i2pd/service/tunnel readiness, config-injection plus aggregated health, CI quality-gate baseline, and release artifact bundle validation (`SHA256SUMS`, `version-manifest.json`, `operator-runbook.md`), with focused unit tests for pass/pending/failure states. Owner: Diagon

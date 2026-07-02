@@ -202,6 +202,35 @@ go run ./cmd/diagonctl \
 
 Use `--emit-release-baseline-file -` to write the generated release baseline to stdout.
 
+### Generate roadmap Definition of Done report
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--service-contract-file profiles/service-contract.json \
+	--integration-matrix-file .github/integration-matrix.json \
+	--integration-environment debian-12 \
+	--probe-live \
+	--probe-timeout 45s \
+	--probe-interval 250ms \
+	--definition-of-done-release-bundle-dir release-artifacts/manifest \
+	--emit-definition-of-done-file /tmp/diagon-definition-of-done.json \
+	--format json
+```
+
+Use `--emit-definition-of-done-file -` to write the generated definition-of-done report to stdout.
+
+The report tracks Section 7 roadmap criteria as `passed`, `pending`, or `failed`:
+
+- single-profile onboarding + secrets handoff evidence
+- live i2pd/service/tunnel readiness evidence
+- config-injection + aggregated health evidence
+- CI stage quality-gate evidence from the integration baseline
+- release artifact evidence (`SHA256SUMS`, `version-manifest.json`, `operator-runbook.md`)
+
 ### Generate Debian dependency manifest (risk mitigation)
 
 ```bash

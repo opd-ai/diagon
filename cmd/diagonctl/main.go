@@ -29,6 +29,8 @@ func main() {
 		quickstartPath  string
 		walletOutPath   string
 		releaseOutPath  string
+		dodOutPath      string
+		dodReleaseDir   string
 		fallbackOutPath string
 		probeLive       bool
 		probeTimeout    time.Duration
@@ -52,6 +54,8 @@ func main() {
 	flag.StringVar(&quickstartPath, "emit-bootstrap-quickstart-file", "", "optional output path for generated single-host bootstrap quickstart markdown (use '-' for stdout)")
 	flag.StringVar(&walletOutPath, "emit-wallet-validation-checklist-file", "", "optional output path for generated production wallet validation checklist markdown (use '-' for stdout)")
 	flag.StringVar(&releaseOutPath, "emit-release-baseline-file", "", "optional output path for generated release candidate baseline manifest (use '-' for stdout)")
+	flag.StringVar(&dodOutPath, "emit-definition-of-done-file", "", "optional output path for generated roadmap section 7 definition-of-done report (use '-' for stdout)")
+	flag.StringVar(&dodReleaseDir, "definition-of-done-release-bundle-dir", "", "optional release bundle directory used to verify SHA256SUMS/version-manifest/runbook evidence")
 	flag.StringVar(&fallbackOutPath, "emit-debian-compose-bundle-file", "", "optional output path for generated Debian fallback compose/service bundle (use '-' for stdout)")
 	flag.BoolVar(&probeLive, "probe-live", false, "actively probe service health/listen endpoints from service contract")
 	flag.DurationVar(&probeTimeout, "probe-timeout", 30*time.Second, "max time to wait for live service probes")
@@ -296,6 +300,31 @@ func main() {
 		}
 	}
 
+	trimmedDoDOut := strings.TrimSpace(dodOutPath)
+	if trimmedDoDOut != "" {
+		if bootstrapProfile == nil || loadedContract == nil || integrationMatrix == nil || trimmedMatrixEnv == "" {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-definition-of-done-file requires --bootstrap-profile-file, --service-contract-file, --integration-matrix-file, and --integration-environment"), &result)
+			os.Exit(2)
+		}
+
+		report, buildErr := profile.BuildDefinitionOfDoneReport(*bootstrapProfile, *loadedContract, *integrationMatrix, trimmedMatrixEnv, profile.DefinitionOfDoneOptions{
+			ProbeLive: probeLive,
+			ProbeOptions: profile.RuntimeProbeOptions{
+				Timeout:  probeTimeout,
+				Interval: probeEvery,
+			},
+			ReleaseBundleDir: strings.TrimSpace(dodReleaseDir),
+		})
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteDefinitionOfDoneReport(trimmedDoDOut, report); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
 	trimmedDepsOut := strings.TrimSpace(depsOutPath)
 	if trimmedDepsOut != "" {
 		if integrationMatrix == nil || trimmedMatrixEnv == "" {
@@ -354,6 +383,8 @@ func main() {
 			BootstrapQuickstartFile string                            `json:"bootstrap_quickstart_file,omitempty"`
 			WalletChecklistFile     string                            `json:"wallet_validation_checklist_file,omitempty"`
 			ReleaseBaselineFile     string                            `json:"release_baseline_file,omitempty"`
+			DefinitionOfDoneFile    string                            `json:"definition_of_done_file,omitempty"`
+			DefinitionOfDoneRelease string                            `json:"definition_of_done_release_bundle_dir,omitempty"`
 			DebianComposeBundleFile string                            `json:"debian_compose_bundle_file,omitempty"`
 			ProbeLive               bool                              `json:"probe_live"`
 			ProbeTimeout            string                            `json:"probe_timeout,omitempty"`
@@ -378,6 +409,8 @@ func main() {
 			BootstrapQuickstartFile: trimmedQuickstartOut,
 			WalletChecklistFile:     trimmedWalletOut,
 			ReleaseBaselineFile:     trimmedReleaseOut,
+			DefinitionOfDoneFile:    trimmedDoDOut,
+			DefinitionOfDoneRelease: strings.TrimSpace(dodReleaseDir),
 			DebianComposeBundleFile: trimmedFallbackOut,
 			ProbeLive:               probeLive,
 			AggregatedHealth:        aggregatedHealth,
