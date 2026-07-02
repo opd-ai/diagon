@@ -20,6 +20,7 @@ It validates:
 - Optional live readiness probes for health endpoints, listeners, and dependency sequencing
 - Phase 4 release-candidate smoke plans, operator runbooks, and version-frozen release baseline manifests
 - Production wallet validation checklist generation for Monero RPC readiness handoff
+- Debian fallback compose/service bundle generation with manual install guidance for interim delivery
 
 ### Policy file format
 
@@ -216,6 +217,23 @@ go run ./cmd/diagonctl \
 
 Use `--emit-debian-dependency-manifest-file -` to write the generated dependency manifest to stdout.
 
+### Generate Debian fallback compose/service bundle
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--service-contract-file profiles/service-contract.json \
+	--integration-matrix-file .github/integration-matrix.json \
+	--integration-environment debian-12 \
+	--emit-debian-compose-bundle-file /tmp/diagon-compose-bundle.json \
+	--format json
+```
+
+Use `--emit-debian-compose-bundle-file -` to write the generated fallback bundle to stdout.
+
 The Debian package baseline generator defines:
 
 - Package layout expectations for binaries, configs, logs, state, and runtime directories
@@ -230,6 +248,13 @@ The Phase 4 release-candidate generators define:
 - An operator runbook with start, stop, status, log, smoke-validation, and recovery commands derived from the frozen bootstrap and service contract inputs
 - A release baseline manifest that freezes Debian/component versions, contract fixtures, and the recommended integration-baseline tag from `.github/integration-matrix.json`
 - A production wallet validation checklist that captures secrets preflight, Monero wallet RPC probes, and paywall settlement verification commands
+
+The Debian fallback compose/service bundle generator defines:
+
+- A pinned-image `compose.yaml` for `i2pd`, `paywall`, and `store` with dependency-aware startup ordering
+- A `diagon-compose.service` systemd unit for host-level lifecycle control of the compose stack
+- A secrets-aware environment template and a manual install guide for Debian operators
+- CI validation checks for compose model generation, service health endpoints, and expected i2pd tunnel listener reachability
 
 The service contract validator enforces:
 

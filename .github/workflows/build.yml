@@ -879,6 +879,60 @@ jobs:
             build/iso-list.txt
             build/images/*.iso
 
+  stage-7b-fallback-compose-bundle:
+    name: Stage 7b - Fallback compose bundle (${{ matrix.environment }})
+    needs:
+      - prepare-integration-matrix
+      - stage-6-e2e-smoke
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs['prepare-integration-matrix'].outputs.ci_matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Emit fallback compose/service bundle
+        run: |
+          mkdir -p artifacts
+          go run ./cmd/diagonctl \
+            --profile-dir profiles \
+            --profile-name myprofile \
+            --policy-file profiles/validation-policy.json \
+            --bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+            --service-contract-file "${{ matrix.service_contract_primary }}" \
+            --integration-matrix-file .github/integration-matrix.json \
+            --integration-environment "${{ matrix.environment }}" \
+            --emit-debian-compose-bundle-file artifacts/debian-compose-bundle.json \
+            --format json > artifacts/stage-7b-fallback-metadata.json
+
+      - name: Validate fallback bundle content
+        run: |
+          bundle=artifacts/debian-compose-bundle.json
+          jq -e '.bundle_name == "debian-compose-fallback"' "$bundle" >/dev/null
+          jq -e '.compose.path == "/opt/diagon/compose/compose.yaml"' "$bundle" >/dev/null
+          jq -e '.systemd_unit.path == "/etc/systemd/system/diagon-compose.service"' "$bundle" >/dev/null
+          jq -e '.environment_template.path == "/etc/diagon/compose/diagon-compose.env.example"' "$bundle" >/dev/null
+          jq -e '.manual_install_steps | length >= 5' "$bundle" >/dev/null
+          jq -r '.compose.content' "$bundle" | grep -q 'container_name: diagon-i2pd'
+          jq -r '.compose.content' "$bundle" | grep -q 'container_name: diagon-paywall'
+          jq -r '.compose.content' "$bundle" | grep -q 'container_name: diagon-store'
+          jq -r '.systemd_unit.content' "$bundle" | grep -q 'ExecStart=/usr/bin/docker compose'
+          jq -r '.manual_install_guide.content' "$bundle" | grep -q 'systemctl enable --now diagon-compose.service'
+
+      - name: Upload fallback bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-7b-fallback-${{ matrix.environment }}
+          path: |
+            artifacts/debian-compose-bundle.json
+            artifacts/stage-7b-fallback-metadata.json
+
   stage-8-release-bundle:
     name: Stage 8 - Signing and release bundle (${{ matrix.environment }})
     needs:
@@ -957,10 +1011,11 @@ jobs:
       - stage-5-contract-tests
       - stage-6-e2e-smoke
       - stage-7-packaging-verification
+      - stage-7b-fallback-compose-bundle
     runs-on: ubuntu-latest
     steps:
       - name: Confirm merge quality gate
-        run: echo "Stages 1 through 7 passed. Merge quality gate satisfied."
+        run: echo "Stages 1 through 7 plus Stage 7b fallback compose bundle passed. Merge quality gate satisfied."
 
   quality-gate-release:
     name: Quality Gate - Release (Stage 8)

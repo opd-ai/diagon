@@ -95,6 +95,38 @@ func TestBuildWorkflowIncludesWalletChecklistAndStubbedCIAssertions(t *testing.T
 	}
 }
 
+func TestBuildWorkflowIncludesFallbackComposeBundleValidation(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustRepoRoot(t)
+	workflowPath := filepath.Join(repoRoot, ".github", "workflows", "build.yml")
+	contents := string(mustReadFile(t, workflowPath))
+
+	if !strings.Contains(contents, "stage-7b-fallback-compose-bundle:") {
+		t.Fatal("build workflow must define stage-7b-fallback-compose-bundle job")
+	}
+
+	if !strings.Contains(contents, "name: Stage 7b - Fallback compose bundle") {
+		t.Fatal("fallback compose bundle job must keep Stage 7b naming")
+	}
+
+	if !strings.Contains(contents, "--emit-debian-compose-bundle-file artifacts/debian-compose-bundle.json \\") {
+		t.Fatal("stage-7b fallback job must emit the Debian compose bundle artifact")
+	}
+
+	if !strings.Contains(contents, "jq -e '.compose.path == \"/opt/diagon/compose/compose.yaml\"'") {
+		t.Fatal("stage-7b fallback job must assert the emitted compose path")
+	}
+
+	if !strings.Contains(contents, "jq -e '.systemd_unit.path == \"/etc/systemd/system/diagon-compose.service\"'") {
+		t.Fatal("stage-7b fallback job must assert the emitted systemd unit path")
+	}
+
+	if !strings.Contains(contents, "- stage-7b-fallback-compose-bundle") {
+		t.Fatal("merge quality gate must depend on stage-7b-fallback-compose-bundle")
+	}
+}
+
 func mustReadFile(t *testing.T, path string) []byte {
 	t.Helper()
 

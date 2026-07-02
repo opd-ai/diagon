@@ -80,7 +80,7 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] Risk: Debian dependency mismatch across environments. Mitigation: pin supported Debian base and maintain a tested dependency manifest. Owner: Diagon
 - [x] Risk: Monero RPC availability or wallet config issues. Mitigation: provide stubbed test mode in CI and separate production wallet validation checklist. Owner: Diagon
 - [x] Risk: operational complexity for non-expert users. Mitigation: single profile bootstrap, deterministic defaults, and operator runbook. Owner: Diagon
-- [ ] Fallback option: if full packaging slips, ship a CI-validated compose/service bundle for Debian with documented manual install steps as interim deliverable. Owner: TBD
+- [x] Fallback option: if full packaging slips, ship a CI-validated compose/service bundle for Debian with documented manual install steps as interim deliverable. Owner: Diagon
 
 ## 7. Definition of Done
 - [ ] A new engineer can provision a supported Debian host and start the full stack using one documented profile and documented secrets input. Owner: TBD
@@ -107,3 +107,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Mitigated Debian dependency-mismatch risk by adding `diagonctl --emit-debian-dependency-manifest-file` to generate a matrix-derived dependency manifest, pinning CI Stage 7 to a Debian codename-specific container, and enforcing manifest-driven package installation and codename constraints with regression tests. Owner: Diagon
 - [x] 2026-07-02: Mitigated Monero RPC availability/wallet configuration risk by adding `diagonctl --emit-wallet-validation-checklist-file` for production wallet preflight validation, extending Stage 6 CI smoke checks to explicitly assert `wallet_mode=stubbed`, and publishing the checklist in Stage 6 and Stage 8 artifacts for operator handoff. Owner: Diagon
 - [x] 2026-07-02: Mitigated non-expert operational complexity risk by adding `diagonctl --emit-bootstrap-quickstart-file` to generate a single-profile bootstrap quickstart with explicit secrets wiring and deterministic validation/probe commands, and publishing the quickstart artifact in CI Stage 6 and Stage 8 release bundles. Owner: Diagon
+- [x] 2026-07-02: Implemented fallback Debian interim deliverable by adding `diagonctl --emit-debian-compose-bundle-file` to generate a pinned compose/service bundle (compose model, systemd unit, env template, manual install guide), wiring CI Stage 7b to validate and publish bundle artifacts, and extending merge quality gates to enforce fallback bundle validation on every change. Owner: Diagon

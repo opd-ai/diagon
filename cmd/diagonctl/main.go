@@ -14,26 +14,27 @@ import (
 
 func main() {
 	var (
-		profileDir     string
-		profileName    string
-		policyPath     string
-		contractPath   string
-		bootstrapPath  string
-		matrixPath     string
-		matrixEnv      string
-		configOutPath  string
-		debianOutPath  string
-		depsOutPath    string
-		smokeOutPath   string
-		runbookOutPath string
-		quickstartPath string
-		walletOutPath  string
-		releaseOutPath string
-		probeLive      bool
-		probeTimeout   time.Duration
-		probeEvery     time.Duration
-		strict         bool
-		outputFmt      string
+		profileDir      string
+		profileName     string
+		policyPath      string
+		contractPath    string
+		bootstrapPath   string
+		matrixPath      string
+		matrixEnv       string
+		configOutPath   string
+		debianOutPath   string
+		depsOutPath     string
+		smokeOutPath    string
+		runbookOutPath  string
+		quickstartPath  string
+		walletOutPath   string
+		releaseOutPath  string
+		fallbackOutPath string
+		probeLive       bool
+		probeTimeout    time.Duration
+		probeEvery      time.Duration
+		strict          bool
+		outputFmt       string
 	)
 
 	flag.StringVar(&profileDir, "profile-dir", "profiles", "directory containing profile files")
@@ -51,6 +52,7 @@ func main() {
 	flag.StringVar(&quickstartPath, "emit-bootstrap-quickstart-file", "", "optional output path for generated single-host bootstrap quickstart markdown (use '-' for stdout)")
 	flag.StringVar(&walletOutPath, "emit-wallet-validation-checklist-file", "", "optional output path for generated production wallet validation checklist markdown (use '-' for stdout)")
 	flag.StringVar(&releaseOutPath, "emit-release-baseline-file", "", "optional output path for generated release candidate baseline manifest (use '-' for stdout)")
+	flag.StringVar(&fallbackOutPath, "emit-debian-compose-bundle-file", "", "optional output path for generated Debian fallback compose/service bundle (use '-' for stdout)")
 	flag.BoolVar(&probeLive, "probe-live", false, "actively probe service health/listen endpoints from service contract")
 	flag.DurationVar(&probeTimeout, "probe-timeout", 30*time.Second, "max time to wait for live service probes")
 	flag.DurationVar(&probeEvery, "probe-interval", 500*time.Millisecond, "retry interval for live service probes")
@@ -312,6 +314,24 @@ func main() {
 		}
 	}
 
+	trimmedFallbackOut := strings.TrimSpace(fallbackOutPath)
+	if trimmedFallbackOut != "" {
+		if bootstrapProfile == nil || loadedContract == nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-debian-compose-bundle-file requires both bootstrap and service contract inputs"), &result)
+			os.Exit(2)
+		}
+
+		bundle, buildErr := profile.BuildDebianComposeServiceBundle(*bootstrapProfile, *loadedContract, integrationEnv)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteDebianComposeServiceBundle(trimmedFallbackOut, bundle); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
 	if strings.EqualFold(outputFmt, "json") {
 		status := "ok"
 		if result.HasErrors() || (strict && len(result.Warnings) > 0) {
@@ -334,6 +354,7 @@ func main() {
 			BootstrapQuickstartFile string                            `json:"bootstrap_quickstart_file,omitempty"`
 			WalletChecklistFile     string                            `json:"wallet_validation_checklist_file,omitempty"`
 			ReleaseBaselineFile     string                            `json:"release_baseline_file,omitempty"`
+			DebianComposeBundleFile string                            `json:"debian_compose_bundle_file,omitempty"`
 			ProbeLive               bool                              `json:"probe_live"`
 			ProbeTimeout            string                            `json:"probe_timeout,omitempty"`
 			ProbeInterval           string                            `json:"probe_interval,omitempty"`
@@ -357,6 +378,7 @@ func main() {
 			BootstrapQuickstartFile: trimmedQuickstartOut,
 			WalletChecklistFile:     trimmedWalletOut,
 			ReleaseBaselineFile:     trimmedReleaseOut,
+			DebianComposeBundleFile: trimmedFallbackOut,
 			ProbeLive:               probeLive,
 			AggregatedHealth:        aggregatedHealth,
 			Strict:                  strict,
