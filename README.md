@@ -101,12 +101,22 @@ go run ./cmd/diagonctl --profile-dir profiles --profile-name myprofile --strict
 go test ./...
 ```
 
-## CI Integration Probe Stage
+## CI Stage Pipeline
 
-The GitHub Actions workflow now includes a Stage 4 bootstrap/probe path that:
+The GitHub Actions workflow is now split into explicit Stage 1 through Stage 8 jobs with environment metadata for Debian 12 (`bookworm`):
 
-- Launches local stub `i2pd`, `paywall`, and `store` HTTP services on contract ports
-- Executes `diagonctl` with `--probe-live` against `profiles/service-contract.json`
-- Publishes `service-probe.json` and per-service logs as workflow artifacts (`service-probe-report`)
+- Stage 1: static checks (`actionlint`, `gofmt`, `go vet`)
+- Stage 2: build artifacts and build-metadata emission for Diagon/Store/Paywall/i2pd matrix entries
+- Stage 3: unit tests (`go test ./...`)
+- Stage 4: integration bootstrap and live readiness probes (`--probe-live`)
+- Stage 5: contract tests for profile + service contract compatibility
+- Stage 6: end-to-end smoke transaction harness with stubbed wallet mode
+- Stage 7: Debian packaging verification (`simple-cdd`, ISO build output checks)
+- Stage 8: checksum + version manifest bundle, with release asset publishing on release events
 
-This provides deterministic CI evidence that readiness gates and runtime contract checks execute successfully.
+Quality gates are modeled as explicit jobs:
+
+- `Quality Gate - Merge (Stages 1-7)` passes only if Stages 1 through 7 succeed
+- `Quality Gate - Release (Stage 8)` passes only if Stage 8 succeeds on release events
+
+These gates are designed to be used as required-status checks in branch and release protection rules.

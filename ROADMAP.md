@@ -94,4 +94,5 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Extended `diagonctl` contract coverage to service integration validation for Store/Paywall/i2pd health endpoints, startup ordering, dependency integrity, and Store->Paywall endpoint compatibility checks. Owner: Diagon
 - [x] 2026-07-02: Added executable service-contract runtime probes in `diagonctl` to actively verify listener reachability, health/readiness endpoints, and dependency/startup sequencing signals for CI bootstrap validation. Owner: Diagon
 - [x] 2026-07-02: Added CI Stage 4 bootstrap wiring in GitHub Actions to launch ephemeral local i2pd/store/paywall stub services, execute `diagonctl --probe-live`, and publish JSON/log probe artifacts for traceability. Owner: Diagon
-- [ ] Next: Split CI stages into explicit Stage 1-8 jobs with required-status quality gates (merge blocked on 1-7, release blocked on 8) and environment-specific matrix metadata. Owner: TBD
+- [x] 2026-07-02: Split CI into explicit Stage 1-8 GitHub Actions jobs with Debian environment matrix metadata, staged artifacts, and explicit merge/release quality gate jobs (1-7 for merge, 8 for release). Owner: Diagon
+- [ ] Next: Replace stubbed Store/Paywall matrix entries with pinned upstream build inputs and contract-test fixtures from the integration version matrix. Owner: TBD

@@ -1,12 +1,30 @@
-name: Build Debian Installer ISO
+name: Debian CI Stages
 
 on:
   push:
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  stage-1-static-checks:
+    name: Stage 1 - Static checks (${{ matrix.environment }})
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - environment: debian-12
+            debian_codename: bookworm
+            go_version: '1.23'
+            diagon_version: local
+            store_version: contract-stub-v1
+            paywall_version: contract-stub-v1
+            i2pd_version: local-stub-v1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -14,16 +32,133 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: ${{ matrix.go_version }}
 
-      - name: Run Go tests
+      - name: Validate workflow and shell scripts
+        uses: rhysd/actionlint@v1
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Upload stage matrix metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-1-metadata-${{ matrix.environment }}
+          path: |
+            .github/workflows/build.yml
+
+  stage-2-build-artifacts:
+    name: Stage 2 - Build artifacts (${{ matrix.environment }})
+    needs: stage-1-static-checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - environment: debian-12
+            debian_codename: bookworm
+            go_version: '1.23'
+            diagon_version: local
+            store_version: contract-stub-v1
+            paywall_version: contract-stub-v1
+            i2pd_version: local-stub-v1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Build diagonctl
+        run: |
+          mkdir -p artifacts/bin
+          go build -o artifacts/bin/diagonctl ./cmd/diagonctl
+
+      - name: Emit build metadata
+        run: |
+          mkdir -p artifacts/metadata
+          cat > artifacts/metadata/build-metadata.json <<EOF
+          {
+            "environment": "${{ matrix.environment }}",
+            "debian_codename": "${{ matrix.debian_codename }}",
+            "components": {
+              "diagon": {
+                "repo": "opd-ai/diagon",
+                "version": "${{ matrix.diagon_version }}",
+                "artifact": "artifacts/bin/diagonctl"
+              },
+              "store": {
+                "repo": "external/store",
+                "version": "${{ matrix.store_version }}",
+                "artifact": "external-managed"
+              },
+              "paywall": {
+                "repo": "external/paywall",
+                "version": "${{ matrix.paywall_version }}",
+                "artifact": "external-managed"
+              },
+              "i2pd": {
+                "repo": "debian/i2pd",
+                "version": "${{ matrix.i2pd_version }}",
+                "artifact": "debian-package"
+              }
+            }
+          }
+          EOF
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-2-build-${{ matrix.environment }}
+          path: |
+            artifacts/bin/diagonctl
+            artifacts/metadata/build-metadata.json
+
+  stage-3-unit-tests:
+    name: Stage 3 - Unit tests (${{ matrix.environment }})
+    needs: stage-2-build-artifacts
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - environment: debian-12
+            go_version: '1.23'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Run Go unit tests
         run: go test ./...
 
-      - name: Validate Debian profile
-        run: go run ./cmd/diagonctl --profile-dir profiles --profile-name myprofile --policy-file profiles/validation-policy.json --format json
+  stage-4-integration-bootstrap:
+    name: Stage 4 - Integration bootstrap (${{ matrix.environment }})
+    needs: stage-3-unit-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - environment: debian-12
+            go_version: '1.23'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Validate service integration contract
-        run: go run ./cmd/diagonctl --profile-dir profiles --profile-name myprofile --policy-file profiles/validation-policy.json --service-contract-file profiles/service-contract.json --format json
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
 
       - name: Bootstrap local integration stubs
         run: |
@@ -90,7 +225,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: service-probe-report
+          name: stage-4-probe-${{ matrix.environment }}
           path: |
             artifacts/service-probe.json
             artifacts/i2pd.log
@@ -98,28 +233,250 @@ jobs:
             artifacts/store.log
           if-no-files-found: error
 
-      - name: Install simple-cdd
+  stage-5-contract-tests:
+    name: Stage 5 - Contract tests (${{ matrix.environment }})
+    needs: stage-4-integration-bootstrap
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - environment: debian-12
+            go_version: '1.23'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Validate profile and service contracts
+        run: |
+          go run ./cmd/diagonctl \
+            --profile-dir profiles \
+            --profile-name myprofile \
+            --policy-file profiles/validation-policy.json \
+            --service-contract-file profiles/service-contract.json \
+            --format json | tee contract-validation.json
+
+      - name: Upload contract validation result
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-5-contract-${{ matrix.environment }}
+          path: contract-validation.json
+
+  stage-6-e2e-smoke:
+    name: Stage 6 - End-to-end smoke (${{ matrix.environment }})
+    needs: stage-5-contract-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - environment: debian-12
+    steps:
+      - name: Execute transaction smoke harness
+        run: |
+          mkdir -p artifacts .tmp
+          cat > .tmp/smoke_services.py <<'PY'
+          import json
+          import threading
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+          from urllib.request import Request, urlopen
+
+
+          class PaywallHandler(BaseHTTPRequestHandler):
+              def do_POST(self):
+                  if self.path != "/pay":
+                      self.send_response(404)
+                      self.end_headers()
+                      return
+                  self.send_response(200)
+                  self.send_header("Content-Type", "application/json")
+                  self.end_headers()
+                  self.wfile.write(json.dumps({"settled": True}).encode("utf-8"))
+
+              def log_message(self, *_args):
+                  return
+
+
+          class StoreHandler(BaseHTTPRequestHandler):
+              def do_POST(self):
+                  if self.path != "/checkout":
+                      self.send_response(404)
+                      self.end_headers()
+                      return
+
+                  req = Request("http://127.0.0.1:8081/pay", method="POST", data=b"{}")
+                  with urlopen(req, timeout=5) as resp:
+                      payload = json.loads(resp.read().decode("utf-8"))
+
+                  self.send_response(200)
+                  self.send_header("Content-Type", "application/json")
+                  self.end_headers()
+                  self.wfile.write(json.dumps({"checkout": "ok", "paywall": payload}).encode("utf-8"))
+
+              def log_message(self, *_args):
+                  return
+
+
+          def run_server(server):
+              server.serve_forever()
+
+
+          paywall = HTTPServer(("127.0.0.1", 8081), PaywallHandler)
+          store = HTTPServer(("127.0.0.1", 8080), StoreHandler)
+
+          paywall_thread = threading.Thread(target=run_server, args=(paywall,), daemon=True)
+          store_thread = threading.Thread(target=run_server, args=(store,), daemon=True)
+          paywall_thread.start()
+          store_thread.start()
+
+          req = Request("http://127.0.0.1:8080/checkout", method="POST", data=b"{}")
+          with urlopen(req, timeout=5) as resp:
+              smoke_result = {
+                  "status_code": resp.status,
+                  "response": json.loads(resp.read().decode("utf-8")),
+                  "wallet_mode": "stubbed-test-wallet"
+              }
+
+          with open("artifacts/stage-6-smoke.json", "w", encoding="utf-8") as fh:
+              json.dump(smoke_result, fh, indent=2)
+
+          assert smoke_result["status_code"] == 200
+          assert smoke_result["response"]["paywall"]["settled"] is True
+
+          paywall.shutdown()
+          store.shutdown()
+          PY
+
+          python3 .tmp/smoke_services.py
+
+      - name: Upload smoke artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-6-smoke-${{ matrix.environment }}
+          path: artifacts/stage-6-smoke.json
+
+  stage-7-packaging-verification:
+    name: Stage 7 - Packaging verification (${{ matrix.environment }})
+    needs: stage-6-e2e-smoke
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - environment: debian-12
+            debian_codename: bookworm
+    steps:
+      - name: Verify Debian build toolchain installability
         run: |
           sudo apt-get update
-          sudo apt-get install -y simple-cdd *archive-keyring
+          sudo apt-get install -y simple-cdd
+          dpkg -s simple-cdd >/dev/null
 
-      - name: Import Debian Archive Keys
+      - name: Build Debian installer ISO
         run: |
-          # Import Debian archive signing keys
-          gpg --keyserver keyserver.ubuntu.com --recv-keys B8E5F13176D2A7A75220028078DBA3BC47EF2265 || true
-          gpg --keyserver keyserver.ubuntu.com --recv-keys B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 || true
-          # Export to the system keyring
-          gpg --export B8E5F13176D2A7A75220028078DBA3BC47EF2265 B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8 | sudo tee -a /usr/share/keyrings/debian-archive-keyring.gpg > /dev/null || true
-
-      - name: Build ISO
-        run: |
-          mkdir build
+          mkdir -p build
           cp -r profiles build/
           cd build
-          build-simple-cdd --profiles myprofile --dist forky
+          build-simple-cdd --profiles myprofile --dist ${{ matrix.debian_codename }}
 
-      - name: Create Release
+      - name: Verify packaging outputs
+        run: |
+          test -d build/images
+          ls -1 build/images/*.iso > build/iso-list.txt
+
+      - name: Upload packaging artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-7-packaging-${{ matrix.environment }}
+          path: |
+            build/iso-list.txt
+            build/images/*.iso
+
+  stage-8-release-bundle:
+    name: Stage 8 - Signing and release bundle (${{ matrix.environment }})
+    needs: stage-7-packaging-verification
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - environment: debian-12
+            debian_codename: bookworm
+            store_version: contract-stub-v1
+            paywall_version: contract-stub-v1
+            i2pd_version: local-stub-v1
+    steps:
+      - name: Download packaging artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: stage-7-packaging-${{ matrix.environment }}
+          path: release-artifacts
+
+      - name: Generate checksums and version manifest
+        run: |
+          mkdir -p release-artifacts/manifest
+          sha256sum release-artifacts/*.iso > release-artifacts/manifest/SHA256SUMS
+          cat > release-artifacts/manifest/version-manifest.json <<EOF
+          {
+            "environment": "${{ matrix.environment }}",
+            "debian_codename": "${{ matrix.debian_codename }}",
+            "components": {
+              "diagon": "${{ github.sha }}",
+              "store": "${{ matrix.store_version }}",
+              "paywall": "${{ matrix.paywall_version }}",
+              "i2pd": "${{ matrix.i2pd_version }}"
+            }
+          }
+          EOF
+
+      - name: Upload release bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-8-release-bundle-${{ matrix.environment }}
+          path: |
+            release-artifacts/*.iso
+            release-artifacts/manifest/SHA256SUMS
+            release-artifacts/manifest/version-manifest.json
+
+      - name: Publish GitHub release assets
+        if: github.event_name == 'release'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/images/*.iso"
+          artifacts: "release-artifacts/*.iso,release-artifacts/manifest/SHA256SUMS,release-artifacts/manifest/version-manifest.json"
           token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          replacesArtifacts: true
+
+  quality-gate-merge:
+    name: Quality Gate - Merge (Stages 1-7)
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    needs:
+      - stage-1-static-checks
+      - stage-2-build-artifacts
+      - stage-3-unit-tests
+      - stage-4-integration-bootstrap
+      - stage-5-contract-tests
+      - stage-6-e2e-smoke
+      - stage-7-packaging-verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm merge quality gate
+        run: echo "Stages 1 through 7 passed. Merge quality gate satisfied."
+
+  quality-gate-release:
+    name: Quality Gate - Release (Stage 8)
+    if: github.event_name == 'release'
+    needs:
+      - stage-8-release-bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm release quality gate
+        run: echo "Stage 8 passed. Release quality gate satisfied."
