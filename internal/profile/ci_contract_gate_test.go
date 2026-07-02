@@ -74,6 +74,10 @@ func TestBuildWorkflowIncludesWalletChecklistAndStubbedCIAssertions(t *testing.T
 		t.Fatal("stage-6-e2e-smoke must emit wallet validation checklist artifact")
 	}
 
+	if !strings.Contains(contents, "--emit-bootstrap-quickstart-file artifacts/bootstrap-quickstart.md \\") {
+		t.Fatal("stage-6-e2e-smoke must emit bootstrap quickstart artifact")
+	}
+
 	if !strings.Contains(contents, "jq -e '.wallet_mode == \"stubbed\"' artifacts/stage-6-smoke-plan.json") {
 		t.Fatal("stage-6-e2e-smoke must assert stubbed wallet mode in emitted smoke plan")
 	}
@@ -84,6 +88,10 @@ func TestBuildWorkflowIncludesWalletChecklistAndStubbedCIAssertions(t *testing.T
 
 	if !strings.Contains(contents, "--emit-wallet-validation-checklist-file release-artifacts/manifest/wallet-validation-checklist.md \\") {
 		t.Fatal("stage-8-release-bundle must include emitted wallet validation checklist")
+	}
+
+	if !strings.Contains(contents, "--emit-bootstrap-quickstart-file release-artifacts/manifest/bootstrap-quickstart.md \\") {
+		t.Fatal("stage-8-release-bundle must include emitted bootstrap quickstart")
 	}
 }
 

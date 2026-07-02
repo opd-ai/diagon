@@ -152,6 +152,23 @@ go run ./cmd/diagonctl \
 
 Use `--emit-operator-runbook-file -` to write the generated runbook to stdout.
 
+### Generate single-host bootstrap quickstart guide
+
+```bash
+go run ./cmd/diagonctl \
+	--profile-dir profiles \
+	--profile-name myprofile \
+	--policy-file profiles/validation-policy.json \
+	--bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+	--service-contract-file profiles/service-contract.json \
+	--integration-matrix-file .github/integration-matrix.json \
+	--integration-environment debian-12 \
+	--emit-bootstrap-quickstart-file /tmp/diagon-bootstrap-quickstart.md \
+	--format json
+```
+
+Use `--emit-bootstrap-quickstart-file -` to write the generated quickstart guide to stdout.
+
 ### Generate production wallet validation checklist
 
 ```bash

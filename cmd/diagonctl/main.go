@@ -26,6 +26,7 @@ func main() {
 		depsOutPath    string
 		smokeOutPath   string
 		runbookOutPath string
+		quickstartPath string
 		walletOutPath  string
 		releaseOutPath string
 		probeLive      bool
@@ -47,6 +48,7 @@ func main() {
 	flag.StringVar(&depsOutPath, "emit-debian-dependency-manifest-file", "", "optional output path for generated Debian dependency manifest bundle (use '-' for stdout)")
 	flag.StringVar(&smokeOutPath, "emit-release-smoke-file", "", "optional output path for generated Phase 4 release-candidate smoke plan (use '-' for stdout)")
 	flag.StringVar(&runbookOutPath, "emit-operator-runbook-file", "", "optional output path for generated operator runbook markdown (use '-' for stdout)")
+	flag.StringVar(&quickstartPath, "emit-bootstrap-quickstart-file", "", "optional output path for generated single-host bootstrap quickstart markdown (use '-' for stdout)")
 	flag.StringVar(&walletOutPath, "emit-wallet-validation-checklist-file", "", "optional output path for generated production wallet validation checklist markdown (use '-' for stdout)")
 	flag.StringVar(&releaseOutPath, "emit-release-baseline-file", "", "optional output path for generated release candidate baseline manifest (use '-' for stdout)")
 	flag.BoolVar(&probeLive, "probe-live", false, "actively probe service health/listen endpoints from service contract")
@@ -256,6 +258,24 @@ func main() {
 		}
 	}
 
+	trimmedQuickstartOut := strings.TrimSpace(quickstartPath)
+	if trimmedQuickstartOut != "" {
+		if bootstrapProfile == nil || loadedContract == nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: --emit-bootstrap-quickstart-file requires both bootstrap and service contract inputs"), &result)
+			os.Exit(2)
+		}
+
+		guide, buildErr := profile.BuildBootstrapQuickstartGuide(*bootstrapProfile, *loadedContract, integrationEnv)
+		if buildErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", buildErr), &result)
+			os.Exit(2)
+		}
+		if writeErr := profile.WriteBootstrapQuickstartGuide(trimmedQuickstartOut, guide); writeErr != nil {
+			emitFailure(outputFmt, fmt.Errorf("validation error: %w", writeErr), &result)
+			os.Exit(2)
+		}
+	}
+
 	trimmedReleaseOut := strings.TrimSpace(releaseOutPath)
 	if trimmedReleaseOut != "" {
 		if integrationMatrix == nil || trimmedMatrixEnv == "" {
@@ -299,47 +319,49 @@ func main() {
 		}
 
 		payload := struct {
-			Status                 string                            `json:"status"`
-			ProfileDir             string                            `json:"profile_dir"`
-			ProfileName            string                            `json:"profile_name"`
-			BootstrapProfileFile   string                            `json:"bootstrap_profile_file,omitempty"`
-			ServiceContractFile    string                            `json:"service_contract_file,omitempty"`
-			IntegrationMatrixFile  string                            `json:"integration_matrix_file,omitempty"`
-			IntegrationEnvironment string                            `json:"integration_environment,omitempty"`
-			ConfigInjectionFile    string                            `json:"config_injection_file,omitempty"`
-			DebianPackageFile      string                            `json:"debian_package_file,omitempty"`
-			DebianDependencyFile   string                            `json:"debian_dependency_manifest_file,omitempty"`
-			ReleaseSmokeFile       string                            `json:"release_smoke_file,omitempty"`
-			OperatorRunbookFile    string                            `json:"operator_runbook_file,omitempty"`
-			WalletChecklistFile    string                            `json:"wallet_validation_checklist_file,omitempty"`
-			ReleaseBaselineFile    string                            `json:"release_baseline_file,omitempty"`
-			ProbeLive              bool                              `json:"probe_live"`
-			ProbeTimeout           string                            `json:"probe_timeout,omitempty"`
-			ProbeInterval          string                            `json:"probe_interval,omitempty"`
-			AggregatedHealth       *profile.ServiceHealthAggregation `json:"aggregated_health,omitempty"`
-			Strict                 bool                              `json:"strict"`
-			Errors                 []string                          `json:"errors"`
-			Warnings               []string                          `json:"warnings"`
+			Status                  string                            `json:"status"`
+			ProfileDir              string                            `json:"profile_dir"`
+			ProfileName             string                            `json:"profile_name"`
+			BootstrapProfileFile    string                            `json:"bootstrap_profile_file,omitempty"`
+			ServiceContractFile     string                            `json:"service_contract_file,omitempty"`
+			IntegrationMatrixFile   string                            `json:"integration_matrix_file,omitempty"`
+			IntegrationEnvironment  string                            `json:"integration_environment,omitempty"`
+			ConfigInjectionFile     string                            `json:"config_injection_file,omitempty"`
+			DebianPackageFile       string                            `json:"debian_package_file,omitempty"`
+			DebianDependencyFile    string                            `json:"debian_dependency_manifest_file,omitempty"`
+			ReleaseSmokeFile        string                            `json:"release_smoke_file,omitempty"`
+			OperatorRunbookFile     string                            `json:"operator_runbook_file,omitempty"`
+			BootstrapQuickstartFile string                            `json:"bootstrap_quickstart_file,omitempty"`
+			WalletChecklistFile     string                            `json:"wallet_validation_checklist_file,omitempty"`
+			ReleaseBaselineFile     string                            `json:"release_baseline_file,omitempty"`
+			ProbeLive               bool                              `json:"probe_live"`
+			ProbeTimeout            string                            `json:"probe_timeout,omitempty"`
+			ProbeInterval           string                            `json:"probe_interval,omitempty"`
+			AggregatedHealth        *profile.ServiceHealthAggregation `json:"aggregated_health,omitempty"`
+			Strict                  bool                              `json:"strict"`
+			Errors                  []string                          `json:"errors"`
+			Warnings                []string                          `json:"warnings"`
 		}{
-			Status:                 status,
-			ProfileDir:             profileDir,
-			ProfileName:            profileName,
-			BootstrapProfileFile:   strings.TrimSpace(bootstrapPath),
-			ServiceContractFile:    resolvedContractPath,
-			IntegrationMatrixFile:  trimmedMatrixPath,
-			IntegrationEnvironment: trimmedMatrixEnv,
-			ConfigInjectionFile:    trimmedConfigOut,
-			DebianPackageFile:      trimmedDebianOut,
-			DebianDependencyFile:   trimmedDepsOut,
-			ReleaseSmokeFile:       trimmedSmokeOut,
-			OperatorRunbookFile:    trimmedRunbookOut,
-			WalletChecklistFile:    trimmedWalletOut,
-			ReleaseBaselineFile:    trimmedReleaseOut,
-			ProbeLive:              probeLive,
-			AggregatedHealth:       aggregatedHealth,
-			Strict:                 strict,
-			Errors:                 result.Errors,
-			Warnings:               result.Warnings,
+			Status:                  status,
+			ProfileDir:              profileDir,
+			ProfileName:             profileName,
+			BootstrapProfileFile:    strings.TrimSpace(bootstrapPath),
+			ServiceContractFile:     resolvedContractPath,
+			IntegrationMatrixFile:   trimmedMatrixPath,
+			IntegrationEnvironment:  trimmedMatrixEnv,
+			ConfigInjectionFile:     trimmedConfigOut,
+			DebianPackageFile:       trimmedDebianOut,
+			DebianDependencyFile:    trimmedDepsOut,
+			ReleaseSmokeFile:        trimmedSmokeOut,
+			OperatorRunbookFile:     trimmedRunbookOut,
+			BootstrapQuickstartFile: trimmedQuickstartOut,
+			WalletChecklistFile:     trimmedWalletOut,
+			ReleaseBaselineFile:     trimmedReleaseOut,
+			ProbeLive:               probeLive,
+			AggregatedHealth:        aggregatedHealth,
+			Strict:                  strict,
+			Errors:                  result.Errors,
+			Warnings:                result.Warnings,
 		}
 		if probeLive {
 			payload.ProbeTimeout = probeTimeout.String()

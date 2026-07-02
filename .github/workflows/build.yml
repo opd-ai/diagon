@@ -540,6 +540,7 @@ jobs:
             --integration-environment "${{ matrix.environment }}" \
             --emit-release-smoke-file artifacts/stage-6-smoke-plan.json \
             --emit-operator-runbook-file artifacts/operator-runbook.md \
+            --emit-bootstrap-quickstart-file artifacts/bootstrap-quickstart.md \
             --emit-wallet-validation-checklist-file artifacts/wallet-validation-checklist.md \
             --format json > artifacts/stage-6-smoke-metadata.json
 
@@ -787,6 +788,7 @@ jobs:
             artifacts/stage-6-smoke-plan.json
             artifacts/stage-6-smoke-metadata.json
             artifacts/operator-runbook.md
+            artifacts/bootstrap-quickstart.md
             artifacts/wallet-validation-checklist.md
 
   stage-7-packaging-verification:
@@ -918,6 +920,7 @@ jobs:
             --integration-environment "${{ matrix.environment }}" \
             --emit-release-baseline-file release-artifacts/manifest/version-manifest.json \
             --emit-operator-runbook-file release-artifacts/manifest/operator-runbook.md \
+            --emit-bootstrap-quickstart-file release-artifacts/manifest/bootstrap-quickstart.md \
             --emit-wallet-validation-checklist-file release-artifacts/manifest/wallet-validation-checklist.md \
             --format json > release-artifacts/manifest/release-metadata.json
 
@@ -930,6 +933,7 @@ jobs:
             release-artifacts/manifest/SHA256SUMS
             release-artifacts/manifest/version-manifest.json
             release-artifacts/manifest/operator-runbook.md
+            release-artifacts/manifest/bootstrap-quickstart.md
             release-artifacts/manifest/wallet-validation-checklist.md
             release-artifacts/manifest/release-metadata.json
 
@@ -937,7 +941,7 @@ jobs:
         if: github.event_name == 'release'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "release-artifacts/**/*.iso,release-artifacts/manifest/SHA256SUMS,release-artifacts/manifest/version-manifest.json,release-artifacts/manifest/operator-runbook.md,release-artifacts/manifest/wallet-validation-checklist.md"
+          artifacts: "release-artifacts/**/*.iso,release-artifacts/manifest/SHA256SUMS,release-artifacts/manifest/version-manifest.json,release-artifacts/manifest/operator-runbook.md,release-artifacts/manifest/bootstrap-quickstart.md,release-artifacts/manifest/wallet-validation-checklist.md"
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
           replacesArtifacts: true

@@ -79,7 +79,7 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] Risk: interface drift between Store and Paywall. Mitigation: contract freeze plus CI contract tests on every change. Owner: Diagon
 - [x] Risk: Debian dependency mismatch across environments. Mitigation: pin supported Debian base and maintain a tested dependency manifest. Owner: Diagon
 - [x] Risk: Monero RPC availability or wallet config issues. Mitigation: provide stubbed test mode in CI and separate production wallet validation checklist. Owner: Diagon
-- [ ] Risk: operational complexity for non-expert users. Mitigation: single profile bootstrap, deterministic defaults, and operator runbook. Owner: TBD
+- [x] Risk: operational complexity for non-expert users. Mitigation: single profile bootstrap, deterministic defaults, and operator runbook. Owner: Diagon
 - [ ] Fallback option: if full packaging slips, ship a CI-validated compose/service bundle for Debian with documented manual install steps as interim deliverable. Owner: TBD
 
 ## 7. Definition of Done
@@ -106,3 +106,4 @@ Deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon
 - [x] 2026-07-02: Mitigated Store/Paywall interface-drift risk by forcing CI Stage 5 to validate the primary service contract plus all matrix fixtures on every push/pull request change, and by adding regression tests that fail if contract-test gating or fixture coverage is weakened. Owner: Diagon
 - [x] 2026-07-02: Mitigated Debian dependency-mismatch risk by adding `diagonctl --emit-debian-dependency-manifest-file` to generate a matrix-derived dependency manifest, pinning CI Stage 7 to a Debian codename-specific container, and enforcing manifest-driven package installation and codename constraints with regression tests. Owner: Diagon
 - [x] 2026-07-02: Mitigated Monero RPC availability/wallet configuration risk by adding `diagonctl --emit-wallet-validation-checklist-file` for production wallet preflight validation, extending Stage 6 CI smoke checks to explicitly assert `wallet_mode=stubbed`, and publishing the checklist in Stage 6 and Stage 8 artifacts for operator handoff. Owner: Diagon
+- [x] 2026-07-02: Mitigated non-expert operational complexity risk by adding `diagonctl --emit-bootstrap-quickstart-file` to generate a single-profile bootstrap quickstart with explicit secrets wiring and deterministic validation/probe commands, and publishing the quickstart artifact in CI Stage 6 and Stage 8 release bundles. Owner: Diagon

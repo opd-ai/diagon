@@ -402,6 +402,183 @@ func WriteOperatorRunbook(path, runbook string) error {
 	return nil
 }
 
+func BuildBootstrapQuickstartGuide(bootstrap BootstrapProfile, contract ServiceContract, environment *IntegrationEnvironment) (string, error) {
+	contractResult := ValidateServiceContractDefinition(contract)
+	if contractResult.HasErrors() {
+		return "", fmt.Errorf("invalid service contract: %s", strings.Join(contractResult.Errors, "; "))
+	}
+
+	bootstrapResult := ValidateBootstrapProfileDefinition(bootstrap, &contract)
+	if bootstrapResult.HasErrors() {
+		return "", fmt.Errorf("invalid bootstrap profile: %s", strings.Join(bootstrapResult.Errors, "; "))
+	}
+
+	secrets := append([]BootstrapSecret{}, bootstrap.Secrets...)
+	sort.SliceStable(secrets, func(i, j int) bool {
+		return strings.TrimSpace(secrets[i].Name) < strings.TrimSpace(secrets[j].Name)
+	})
+
+	profileDir := "profiles"
+	profileName := "myprofile"
+	bootstrapPath := "profiles/local-single-host-bootstrap.json"
+	serviceContractPath := strings.TrimSpace(bootstrap.ServiceContractFile)
+	if serviceContractPath == "" {
+		serviceContractPath = "profiles/service-contract.json"
+	}
+
+	var builder strings.Builder
+	builder.WriteString("# Diagon Single-Host Bootstrap Quickstart\n\n")
+	builder.WriteString("This guide provides one deterministic bootstrap profile and one secrets contract for local Debian bring-up.\n\n")
+	if environment != nil {
+		builder.WriteString("- Environment: ")
+		builder.WriteString(strings.TrimSpace(environment.Environment))
+		builder.WriteString("\n")
+		builder.WriteString("- Debian: ")
+		builder.WriteString(strings.TrimSpace(environment.DebianVersion))
+		builder.WriteString(" (")
+		builder.WriteString(strings.TrimSpace(environment.DebianCodename))
+		builder.WriteString(")\n\n")
+	}
+
+	builder.WriteString("## Canonical Inputs\n\n")
+	builder.WriteString("- Profile directory: `")
+	builder.WriteString(profileDir)
+	builder.WriteString("`\n")
+	builder.WriteString("- Profile name: `")
+	builder.WriteString(profileName)
+	builder.WriteString("`\n")
+	builder.WriteString("- Bootstrap profile: `")
+	builder.WriteString(bootstrapPath)
+	builder.WriteString("`\n")
+	builder.WriteString("- Service contract: `")
+	builder.WriteString(serviceContractPath)
+	builder.WriteString("`\n\n")
+
+	builder.WriteString("## Required Secrets\n\n")
+	if len(secrets) == 0 {
+		builder.WriteString("- No bootstrap secrets are declared; inject credentials using your environment management standard.\n\n")
+	} else {
+		for _, secret := range secrets {
+			secretName := strings.TrimSpace(secret.Name)
+			source := strings.TrimSpace(strings.ToLower(secret.Source))
+			builder.WriteString("- `")
+			builder.WriteString(secretName)
+			builder.WriteString("` (")
+			builder.WriteString(source)
+			builder.WriteString(")")
+			if secret.Required {
+				builder.WriteString(" required")
+			}
+			builder.WriteString("\n")
+			if source == "env" {
+				builder.WriteString("  - `export ")
+				builder.WriteString(strings.TrimSpace(secret.Ref))
+				builder.WriteString("='<redacted>'`\n")
+			} else {
+				builder.WriteString("  - `install -m 600 /dev/null ")
+				builder.WriteString(strings.TrimSpace(secret.Ref))
+				builder.WriteString("` then write the secret value\n")
+			}
+		}
+		builder.WriteString("\n")
+	}
+
+	builder.WriteString("## Deterministic Validation\n\n```bash\n")
+	builder.WriteString("go run ./cmd/diagonctl \\\n")
+	builder.WriteString("  --profile-dir ")
+	builder.WriteString(profileDir)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --profile-name ")
+	builder.WriteString(profileName)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --policy-file profiles/validation-policy.json \\\n")
+	builder.WriteString("  --bootstrap-profile-file ")
+	builder.WriteString(bootstrapPath)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --service-contract-file ")
+	builder.WriteString(serviceContractPath)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --format json\n")
+	builder.WriteString("```\n\n")
+
+	builder.WriteString("## Readiness Probe\n\n```bash\n")
+	builder.WriteString("go run ./cmd/diagonctl \\\n")
+	builder.WriteString("  --profile-dir ")
+	builder.WriteString(profileDir)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --profile-name ")
+	builder.WriteString(profileName)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --policy-file profiles/validation-policy.json \\\n")
+	builder.WriteString("  --bootstrap-profile-file ")
+	builder.WriteString(bootstrapPath)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --service-contract-file ")
+	builder.WriteString(serviceContractPath)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --probe-live \\\n")
+	builder.WriteString("  --probe-timeout 45s \\\n")
+	builder.WriteString("  --probe-interval 250ms \\\n")
+	builder.WriteString("  --format json\n")
+	builder.WriteString("```\n\n")
+
+	builder.WriteString("## Operator Runbook\n\n```bash\n")
+	builder.WriteString("go run ./cmd/diagonctl \\\n")
+	builder.WriteString("  --profile-dir ")
+	builder.WriteString(profileDir)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --profile-name ")
+	builder.WriteString(profileName)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --policy-file profiles/validation-policy.json \\\n")
+	builder.WriteString("  --bootstrap-profile-file ")
+	builder.WriteString(bootstrapPath)
+	builder.WriteString(" \\\n")
+	builder.WriteString("  --service-contract-file ")
+	builder.WriteString(serviceContractPath)
+	builder.WriteString(" \\\n")
+	if environment != nil {
+		builder.WriteString("  --integration-matrix-file .github/integration-matrix.json \\\n")
+		builder.WriteString("  --integration-environment ")
+		builder.WriteString(strings.TrimSpace(environment.Environment))
+		builder.WriteString(" \\\n")
+	}
+	builder.WriteString("  --emit-operator-runbook-file ./operator-runbook.md \\\n")
+	builder.WriteString("  --format json\n")
+	builder.WriteString("```\n\n")
+
+	builder.WriteString("## Success Criteria\n\n")
+	builder.WriteString("- Validation command returns `status=ok`.\n")
+	builder.WriteString("- Live probe output returns `aggregated_health.ready=true`.\n")
+	builder.WriteString("- Operator runbook is generated without manual profile edits beyond secrets.\n")
+
+	return builder.String(), nil
+}
+
+func WriteBootstrapQuickstartGuide(path, guide string) error {
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return fmt.Errorf("bootstrap quickstart output path cannot be empty")
+	}
+
+	raw := []byte(guide)
+	if !strings.HasSuffix(guide, "\n") {
+		raw = append(raw, '\n')
+	}
+
+	if trimmedPath == "-" {
+		if _, err := os.Stdout.Write(raw); err != nil {
+			return fmt.Errorf("write bootstrap quickstart to stdout: %w", err)
+		}
+		return nil
+	}
+
+	if err := os.WriteFile(trimmedPath, raw, 0o644); err != nil {
+		return fmt.Errorf("write bootstrap quickstart to %s: %w", trimmedPath, err)
+	}
+	return nil
+}
+
 func BuildWalletValidationChecklist(bootstrap BootstrapProfile, contract ServiceContract, environment *IntegrationEnvironment) (string, error) {
 	contractResult := ValidateServiceContractDefinition(contract)
 	if contractResult.HasErrors() {
