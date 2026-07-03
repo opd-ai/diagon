@@ -1,0 +1,162 @@
+name: OpenBSD CI
+
+on:
+  push:
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-openbsd-matrix:
+    name: Prepare OpenBSD matrix
+    runs-on: ubuntu-latest
+    outputs:
+      ci_matrix: ${{ steps.matrix.outputs.ci_matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build CI matrix from OpenBSD matrix file
+        id: matrix
+        run: bash .github/scripts/build-openbsd-matrix.sh
+
+  validate-shared-config:
+    name: Validate shared config (${{ matrix.environment }})
+    needs: prepare-openbsd-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs['prepare-openbsd-matrix'].outputs.ci_matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Validate profile and service contract (shared with Debian)
+        run: |
+          go run ./cmd/diagonctl \
+            --profile-dir profiles \
+            --profile-name myprofile \
+            --policy-file profiles/validation-policy.json \
+            --service-contract-file "${{ matrix.service_contract_primary }}" \
+            --format json
+
+      - name: Validate all contract fixtures
+        env:
+          PRIMARY: ${{ matrix.service_contract_primary }}
+          CONTRACTS_JSON: ${{ toJson(matrix.service_contract_fixtures) }}
+        run: bash .github/scripts/validate-contract-fixtures.sh
+
+  build-openbsd-image:
+    name: Build OpenBSD image (${{ matrix.environment }})
+    needs:
+      - prepare-openbsd-matrix
+      - validate-shared-config
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs['prepare-openbsd-matrix'].outputs.ci_matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install image build tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils xorriso expect
+
+      - name: Build installable OpenBSD disk image
+        env:
+          OPENBSD_VERSION: ${{ matrix.openbsd_version }}
+          OPENBSD_ARCH: ${{ matrix.openbsd_arch }}
+          OPENBSD_MIRROR: ${{ matrix.openbsd_mirror }}
+        run: bash .github/scripts/build-openbsd-image.sh
+
+      - name: Upload OpenBSD image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbsd-image-${{ matrix.environment }}
+          path: |
+            build/openbsd/image-list.txt
+            build/openbsd/images/*.img
+            build/openbsd/images/SHA256SUMS
+
+  release-openbsd-bundle:
+    name: Release OpenBSD bundle (${{ matrix.environment }})
+    needs:
+      - prepare-openbsd-matrix
+      - build-openbsd-image
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs['prepare-openbsd-matrix'].outputs.ci_matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Download OpenBSD image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openbsd-image-${{ matrix.environment }}
+          path: release-artifacts
+
+      - name: Generate checksums, release baseline, and operator runbook
+        run: |
+          mkdir -p release-artifacts/manifest
+          find release-artifacts -type f -name '*.img' -print0 | xargs -0 sha256sum > release-artifacts/manifest/SHA256SUMS
+          go run ./cmd/diagonctl \
+            --profile-dir profiles \
+            --profile-name myprofile \
+            --policy-file profiles/validation-policy.json \
+            --bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+            --service-contract-file "${{ matrix.service_contract_primary }}" \
+            --emit-release-baseline-file release-artifacts/manifest/version-manifest.json \
+            --emit-operator-runbook-file release-artifacts/manifest/operator-runbook.md \
+            --format json > release-artifacts/manifest/release-metadata.json
+
+      - name: Upload OpenBSD release bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbsd-release-bundle-${{ matrix.environment }}
+          path: |
+            release-artifacts/**/*.img
+            release-artifacts/manifest/SHA256SUMS
+            release-artifacts/manifest/version-manifest.json
+            release-artifacts/manifest/operator-runbook.md
+            release-artifacts/manifest/release-metadata.json
+
+      - name: Publish GitHub release assets
+        if: github.event_name == 'release'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "release-artifacts/**/*.img,release-artifacts/manifest/SHA256SUMS,release-artifacts/manifest/version-manifest.json,release-artifacts/manifest/operator-runbook.md"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          replacesArtifacts: true
+
+  quality-gate-openbsd:
+    name: Quality Gate - OpenBSD
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    needs:
+      - validate-shared-config
+      - build-openbsd-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm OpenBSD pipeline passed
+        run: echo "OpenBSD validation and image build succeeded"
