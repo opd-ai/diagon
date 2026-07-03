@@ -88,7 +88,11 @@ jobs:
         env:
           GO_VERSION: ${{ matrix.go_version }}
           DEBIAN_CODENAME: ${{ matrix.debian_codename }}
+          STORE_REPO: ${{ matrix.store_repo }}
+          STORE_VERSION: ${{ matrix.store_version }}
           STORE_BUILD_INPUT: ${{ matrix.store_build_input }}
+          PAYWALL_REPO: ${{ matrix.paywall_repo }}
+          PAYWALL_VERSION: ${{ matrix.paywall_version }}
           PAYWALL_BUILD_INPUT: ${{ matrix.paywall_build_input }}
         run: bash .github/scripts/build-artifacts.sh
 

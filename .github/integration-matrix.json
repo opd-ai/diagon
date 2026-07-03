@@ -5,7 +5,7 @@
       "environment": "debian-12",
       "debian_version": "12",
       "debian_codename": "bookworm",
-      "go_version": "1.23",
+      "go_version": "1.26",
       "package_dependencies": [
         "simple-cdd",
         "debian-archive-keyring"
