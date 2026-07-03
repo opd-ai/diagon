@@ -24,7 +24,7 @@
         "paywall": {
           "repo": "opd-ai/paywall",
           "version": "main",
-          "build_input": "github.com/opd-ai/paywall/cmd/paywall@main"
+          "build_input": "github.com/opd-ai/paywall/example@main"
         },
         "i2pd": {
           "repo": "purplei2p/i2pd",
