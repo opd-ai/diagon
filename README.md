@@ -335,7 +335,7 @@ Integration versions and contract fixtures are sourced from [.github/integration
 
 - Stage 1: static checks for pinned matrix components, including pinned-ref resolution for every repo plus `gofmt` and `go vet` for Diagon, Store, and Paywall
 - Stage 2: Debian-bookworm artifact builds for Diagon, Store, and Paywall in a pinned `golang:<go_version>-<debian_codename>` container, plus build-metadata emission for the full matrix
-- Stage 3: readonly unit tests for Diagon, Store, and Paywall (`GOFLAGS=-mod=readonly go test ./...`) with lockfile cleanliness enforced after each run
+- Stage 3: readonly unit tests with lockfile cleanliness enforced after each run. Diagon runs its full first-party suite (`GOFLAGS=-mod=readonly go test ./...`); pinned third-party components (Store, Paywall) run in `-short` mode against their locked dependency state, skipping known non-hermetic upstream network tests so the pipeline stays reproducible and flake-free
 - Stage 4: integration bootstrap and live readiness probes (`--probe-live`), plus a timeout regression that proves readiness failures surface when a required service never becomes ready
 - Stage 5: contract tests for profile + matrix-defined service-contract fixture compatibility
 - Stage 6: generated smoke plan plus end-to-end smoke and graceful-restart validation with stubbed wallet mode
