@@ -2,6 +2,14 @@
 
 `diagon` currently contains Debian installer profile assets and CI automation for building an installer ISO.
 
+## Documentation site
+
+End-user documentation is published with GitHub Pages from the [`docs/`](docs/) folder on `main`:
+
+- **Live site:** https://opd-ai.github.io/diagon/
+
+The site includes an introduction, quick start, installation guide, configuration reference, variants guide, and FAQ. It is static HTML/CSS/JS with no build step or external dependencies. To update it, edit the files under [`docs/`](docs/) and push to `main`; see [.github/DOCS_MAINTENANCE.md](.github/DOCS_MAINTENANCE.md) for the maintenance workflow.
+
 ## Profile Validation CLI
 
 This repository now includes `diagonctl`, a lightweight validator for Debian profile inputs.
