@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "environments": [
+    {
+      "environment": "openbsd-7.5",
+      "openbsd_version": "7.5",
+      "openbsd_arch": "amd64",
+      "openbsd_mirror": "https://cdn.openbsd.org/pub/OpenBSD",
+      "go_version": "1.23",
+      "package_dependencies": [
+        "curl",
+        "i2pd"
+      ],
+      "components": {
+        "diagon": {
+          "repo": "opd-ai/diagon",
+          "version": "main",
+          "build_input": "./cmd/diagonctl"
+        },
+        "store": {
+          "repo": "opd-ai/store",
+          "version": "main",
+          "build_input": "github.com/opd-ai/store/cmd/store@main"
+        },
+        "paywall": {
+          "repo": "opd-ai/paywall",
+          "version": "main",
+          "build_input": "github.com/opd-ai/paywall/cmd/paywall@main"
+        },
+        "i2pd": {
+          "repo": "purplei2p/i2pd",
+          "version": "2.54.0",
+          "build_input": "openbsd:7.5/i2pd"
+        }
+      },
+      "contract_fixtures": {
+        "primary": "profiles/service-contract.json",
+        "service_contracts": [
+          "profiles/service-contract.json",
+          "profiles/fixtures/service-contract/store-paywall-i2pd-v2026.07.02.json",
+          "profiles/fixtures/service-contract/store-paywall-i2pd-canary-v2026.07.02.json"
+        ]
+      }
+    }
+  ]
+}

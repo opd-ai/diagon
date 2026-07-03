@@ -1,0 +1,25 @@
+#!/bin/sh
+# Diagon OpenBSD site set customization script (analog to the package install
+# step of the Debian profile). autoinstall(8) runs this once, in the freshly
+# installed root, after the base sets are extracted.
+#
+# It installs the shared Diagon package set from profiles/openbsd/pkg.list,
+# which is shipped inside the same site tarball at /var/diagon/pkg.list.
+set -e
+
+version="$(uname -r)"
+arch="$(machine -a)"
+export PKG_PATH="${DIAGON_MIRROR:-https://cdn.openbsd.org/pub/OpenBSD}/${version}/packages/${arch}/"
+
+if [ -f /var/diagon/pkg.list ]; then
+	while IFS= read -r pkg; do
+		case "$pkg" in
+		''|\#*) continue ;;
+		esac
+		pkg_add -I "$pkg"
+	done < /var/diagon/pkg.list
+fi
+
+# Keep sshd enabled (base system) so the operator can reach the host to inject
+# secrets and complete bootstrap, matching the Debian openssh-server intent.
+rcctl enable sshd

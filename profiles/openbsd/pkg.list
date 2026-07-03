@@ -1,0 +1,6 @@
+# Diagon OpenBSD package set (analog to profiles/myprofile.packages).
+# openssh is part of the OpenBSD base system, so it is not listed here.
+# debian-archive-keyring has no OpenBSD analog and is intentionally omitted.
+curl
+vim--no_x11
+i2pd
