@@ -68,9 +68,11 @@ xorriso -indev "$iso_orig" -outdev "$iso_serial" \
 echo "==> Generating build-specific autoinstall response file"
 conf="$work/http/install.conf"
 cp profiles/openbsd/install.conf "$conf"
-# The set location is the local mirror reached over QEMU user networking. Only
+# The set location is the local mirror reached over QEMU user networking. The
+# guest reaches the host HTTP server through a dedicated SLIRP guest address
+# (10.0.2.2 is reserved as the gateway and cannot be used for guestfwd). Only
 # the server host is build-specific; everything else lives in the shared config.
-printf 'HTTP Server = 10.0.2.2\n' >> "$conf"
+printf 'HTTP Server = 10.0.2.100\n' >> "$conf"
 
 image="$images_dir/diagon-openbsd-${ver}-${arch}.img"
 echo "==> Creating blank ${image} target disk"
@@ -80,6 +82,23 @@ echo "==> Serving set mirror + response file on 127.0.0.1:${http_port}"
 python3 -m http.server "$http_port" --directory "$work/http" >/dev/null 2>&1 &
 http_pid=$!
 trap 'kill "$http_pid" 2>/dev/null || true' EXIT
+
+# QEMU's guestfwd opens its forwarding socket to the host service eagerly at
+# startup, so the mirror must already accept connections before QEMU launches.
+echo "==> Waiting for local mirror to accept connections"
+mirror_ready=0
+for _ in $(seq 1 50); do
+	if (exec 3<>"/dev/tcp/127.0.0.1/${http_port}") 2>/dev/null; then
+		exec 3>&- 3<&-
+		mirror_ready=1
+		break
+	fi
+	sleep 0.2
+done
+if [[ "$mirror_ready" -ne 1 ]]; then
+	echo "ERROR: local mirror on 127.0.0.1:${http_port} did not become ready" >&2
+	exit 1
+fi
 
 accel="tcg"
 if [[ -w /dev/kvm ]]; then
@@ -101,7 +120,7 @@ spawn qemu-system-x86_64 \
 	-m 2048 -smp 2 \
 	-drive file=$image,format=raw,if=virtio \
 	-cdrom $iso -boot d \
-	-netdev user,id=n0,guestfwd=tcp:10.0.2.2:80-tcp:127.0.0.1:$port \
+	-netdev user,id=n0,guestfwd=tcp:10.0.2.100:80-tcp:127.0.0.1:$port \
 	-device virtio-net-pci,netdev=n0 \
 	-nographic -serial mon:stdio -vga none
 
@@ -113,7 +132,7 @@ expect {
 
 # Point autoinstall at the response file served from the host.
 expect {
-	-re {Response file location} { send "http://10.0.2.2/install.conf\r" }
+	-re {Response file location} { send "http://10.0.2.100/install.conf\r" }
 	timeout { puts "TIMEOUT: response file prompt"; exit 1 }
 }
 
