@@ -5,6 +5,7 @@
   <url><loc>https://opd-ai.github.io/diagon/installation.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://opd-ai.github.io/diagon/configuration.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://opd-ai.github.io/diagon/variants.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://opd-ai.github.io/diagon/reports.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://opd-ai.github.io/diagon/faq.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://opd-ai.github.io/diagon/about.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
 </urlset>
