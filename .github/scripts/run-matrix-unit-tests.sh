@@ -37,12 +37,20 @@ assert_lockfiles_clean() {
 run_go_tests() {
   local name="$1"
   local path="$2"
+  shift 2
+  local extra_args=("$@")
 
   pushd "$path" >/dev/null
-  GOFLAGS=-mod=readonly go test ./...
+  GOFLAGS=-mod=readonly go test "${extra_args[@]}" ./...
   popd >/dev/null
   assert_lockfiles_clean "$name" "$path"
 }
+
+# Non-hermetic upstream tests that reach external networks and do not honor the
+# -short flag. Diagon runs pinned third-party components in -short mode and skips
+# these so its own CI stays reproducible and flake-free; the components' own CI
+# owns exercising them against live infrastructure.
+NON_HERMETIC_TESTS='TestBitcoinTimestampProvider_GetLatestBlockTime'
 
 component_root="$RUNNER_TEMP/matrix-components"
 mkdir -p "$component_root"
@@ -53,11 +61,14 @@ while IFS=$'\t' read -r name repo version; do
   fi
 
   if [[ "$name" == "diagon" ]]; then
+    # First-party: run the full, hermetic unit-test suite.
     run_go_tests "$name" "$PWD"
     continue
   fi
 
   destination="$component_root/$name"
   checkout_component "$name" "$repo" "$version" "$destination"
-  run_go_tests "$name" "$destination"
+  # Third-party: run unit tests in -short mode against the locked dependency
+  # state, skipping known non-hermetic network tests.
+  run_go_tests "$name" "$destination" -short -skip "$NON_HERMETIC_TESTS"
 done < <(printf '%s' "$COMPONENTS_JSON" | jq -r 'to_entries[] | [.key, .value.repo, .value.version] | @tsv')
