@@ -1,0 +1,23 @@
+{
+  "status": "ok",
+  "profile_dir": "profiles",
+  "profile_name": "myprofile",
+  "bootstrap_profile_file": "profiles/local-single-host-bootstrap.json",
+  "service_contract_file": "profiles/service-contract.json",
+  "integration_matrix_file": ".github/integration-matrix.json",
+  "integration_environment": "debian-12",
+  "config_injection_file": "docs/reports/config-injection.json",
+  "debian_package_file": "docs/reports/debian-package.json",
+  "debian_dependency_manifest_file": "docs/reports/debian-dependency-manifest.json",
+  "release_smoke_file": "docs/reports/release-smoke.json",
+  "operator_runbook_file": "docs/reports/operator-runbook.md",
+  "bootstrap_quickstart_file": "docs/reports/bootstrap-quickstart.md",
+  "wallet_validation_checklist_file": "docs/reports/wallet-validation-checklist.md",
+  "release_baseline_file": "docs/reports/release-baseline.json",
+  "definition_of_done_file": "docs/reports/definition-of-done.json",
+  "debian_compose_bundle_file": "docs/reports/debian-compose-bundle.json",
+  "probe_live": false,
+  "strict": false,
+  "errors": null,
+  "warnings": null
+}

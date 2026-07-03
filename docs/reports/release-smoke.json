@@ -1,0 +1,126 @@
+{
+  "name": "local-single-host-bootstrap",
+  "wallet_mode": "stubbed",
+  "startup_sequence": [
+    "i2pd",
+    "paywall",
+    "store",
+    "diagonctl"
+  ],
+  "service_endpoints": [
+    {
+      "service": "i2pd",
+      "listen": "127.0.0.1:7070",
+      "base_url": "http://127.0.0.1:7070",
+      "health_url": "http://127.0.0.1:7070/health"
+    },
+    {
+      "service": "paywall",
+      "listen": "127.0.0.1:8081",
+      "base_url": "http://127.0.0.1:8081",
+      "health_url": "http://127.0.0.1:8081/healthz"
+    },
+    {
+      "service": "store",
+      "listen": "127.0.0.1:8080",
+      "base_url": "http://127.0.0.1:8080",
+      "health_url": "http://127.0.0.1:8080/healthz"
+    }
+  ],
+  "tunnel_endpoints": [
+    {
+      "name": "store-http",
+      "target_service": "store",
+      "listen": "127.0.0.1:18080",
+      "base_url": "http://127.0.0.1:18080",
+      "target": "127.0.0.1:8080",
+      "type": "http"
+    },
+    {
+      "name": "paywall-http",
+      "target_service": "paywall",
+      "listen": "127.0.0.1:18081",
+      "base_url": "http://127.0.0.1:18081",
+      "target": "127.0.0.1:8081",
+      "type": "http"
+    }
+  ],
+  "health_checks": [
+    {
+      "service": "i2pd",
+      "method": "GET",
+      "url": "http://127.0.0.1:7070/health",
+      "expected_status": 200
+    },
+    {
+      "service": "paywall",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/healthz",
+      "expected_status": 200
+    },
+    {
+      "service": "store",
+      "method": "GET",
+      "url": "http://127.0.0.1:8080/healthz",
+      "expected_status": 200
+    }
+  ],
+  "marketplace_access": {
+    "service": "store",
+    "method": "POST",
+    "url": "http://127.0.0.1:18080/checkout",
+    "expected_status": 200,
+    "expected_assertions": [
+      "json.checkout == \"ok\"",
+      "json.paywall.settled == true"
+    ],
+    "via_tunnel": "http://127.0.0.1:18080"
+  },
+  "paywall_validation": {
+    "service": "paywall",
+    "method": "POST",
+    "url": "http://127.0.0.1:8081/pay",
+    "expected_status": 200,
+    "expected_assertions": [
+      "json.settled == true"
+    ]
+  },
+  "graceful_restart": {
+    "stop_units": [
+      "diagon-store.service",
+      "diagon-paywall.service",
+      "diagon-i2pd.service"
+    ],
+    "start_units": [
+      "diagon-i2pd.service",
+      "diagon-paywall.service",
+      "diagon-store.service"
+    ],
+    "post_restart_checks": [
+      {
+        "service": "i2pd",
+        "method": "GET",
+        "url": "http://127.0.0.1:7070/health",
+        "expected_status": 200
+      },
+      {
+        "service": "paywall",
+        "method": "GET",
+        "url": "http://127.0.0.1:8081/healthz",
+        "expected_status": 200
+      },
+      {
+        "service": "store",
+        "method": "GET",
+        "url": "http://127.0.0.1:8080/healthz",
+        "expected_status": 200
+      }
+    ]
+  },
+  "success_criteria": [
+    "All services report 2xx health status in startup order.",
+    "Marketplace access succeeds through the Store i2pd tunnel endpoint.",
+    "Paywall validation returns a settled response in stubbed wallet mode.",
+    "After a graceful restart, all health checks and the marketplace access path succeed again."
+  ]
+}

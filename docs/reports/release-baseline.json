@@ -1,0 +1,47 @@
+{
+  "environment": "debian-12",
+  "debian_version": "12",
+  "debian_codename": "bookworm",
+  "go_version": "1.26",
+  "tag_name": "integration-debian-12-v2026.07.02",
+  "package_dependencies": [
+    "simple-cdd",
+    "debian-archive-keyring"
+  ],
+  "contract_fixtures": [
+    "profiles/fixtures/service-contract/store-paywall-i2pd-canary-v2026.07.02.json",
+    "profiles/fixtures/service-contract/store-paywall-i2pd-v2026.07.02.json",
+    "profiles/service-contract.json"
+  ],
+  "components": {
+    "diagon": {
+      "repo": "opd-ai/diagon",
+      "version": "main",
+      "build_input": "./cmd/diagonctl"
+    },
+    "i2pd": {
+      "repo": "purplei2p/i2pd",
+      "version": "2.54.0",
+      "build_input": "debian:bookworm/i2pd=2.54.0-1"
+    },
+    "paywall": {
+      "repo": "opd-ai/paywall",
+      "version": "main",
+      "build_input": "github.com/opd-ai/paywall/example@main"
+    },
+    "store": {
+      "repo": "opd-ai/store",
+      "version": "main",
+      "build_input": "github.com/opd-ai/store/cmd/store@main"
+    }
+  },
+  "quality_gates": [
+    "merge blocked unless Stages 1 through 7 pass",
+    "release blocked unless Stage 8 passes"
+  ],
+  "success_criteria": [
+    "Pinned component versions match the integration matrix.",
+    "Service-contract fixtures are frozen under the release candidate baseline tag.",
+    "The release bundle includes checksums, the version manifest, and the operator runbook."
+  ]
+}

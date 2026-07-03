@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-07-03T01:48:19Z",
+  "environment": "debian-12",
+  "ready_for_next_phase": false,
+  "passed_criteria": 2,
+  "pending_criteria": 3,
+  "failed_criteria": 0,
+  "criteria": [
+    {
+      "id": "dod-1-onboarding",
+      "requirement": "A new engineer can provision a supported Debian host and start the full stack using one documented profile and documented secrets input.",
+      "status": "passed",
+      "evidence": [
+        "Bootstrap quickstart can be generated from canonical profile/contract inputs.",
+        "Required bootstrap secrets are declared with explicit source/ref wiring."
+      ]
+    },
+    {
+      "id": "dod-2-runtime-readiness",
+      "requirement": "i2pd runs as a local service, required tunnels are up, and dependent services report ready status within defined timeout.",
+      "status": "pending",
+      "evidence": [
+        "Service contract includes i2pd/store/paywall topology and i2pd tunnel mappings.",
+        "Live probe verifies service readiness sequencing and tunnel listener reachability."
+      ],
+      "errors": [
+        "run with live probes enabled to produce runtime readiness evidence"
+      ]
+    },
+    {
+      "id": "dod-3-config-and-health",
+      "requirement": "Diagon successfully wires Store and Paywall configs and reports aggregated health accurately.",
+      "status": "pending",
+      "evidence": [
+        "Config injection bundle is generated for store/paywall/i2pd without validation errors.",
+        "Aggregated health model reports all components ready when live probes succeed."
+      ],
+      "errors": [
+        "run with live probes enabled to verify aggregated health readiness"
+      ]
+    },
+    {
+      "id": "dod-4-ci-stages",
+      "requirement": "CI demonstrates passing static checks, builds, unit tests, integration tests, end-to-end smoke tests, and Debian packaging verification.",
+      "status": "passed",
+      "evidence": [
+        "Release candidate baseline defines merge (Stages 1-7) and release (Stage 8) quality gate expectations.",
+        "Integration matrix environment yields a frozen CI baseline; live CI stage results are enforced by the GitHub Actions workflow rather than this report."
+      ]
+    },
+    {
+      "id": "dod-5-release-artifacts",
+      "requirement": "Release artifact set includes version manifest, checksums, and operator runbook sufficient for reproducible deployment.",
+      "status": "pending",
+      "evidence": [
+        "release bundle includes SHA256SUMS.",
+        "release bundle includes version-manifest.json.",
+        "release bundle includes operator-runbook.md."
+      ],
+      "errors": [
+        "set a release bundle directory to verify artifact files on disk"
+      ]
+    }
+  ]
+}

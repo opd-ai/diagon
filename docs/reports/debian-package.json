@@ -1,0 +1,293 @@
+{
+  "package_name": "diagon",
+  "layout": {
+    "binaries": [
+      {
+        "name": "diagonctl",
+        "path": "/usr/bin/diagonctl",
+        "source": "diagon-package"
+      },
+      {
+        "name": "store",
+        "path": "/usr/libexec/diagon/store",
+        "source": "diagon-package"
+      },
+      {
+        "name": "paywall",
+        "path": "/usr/libexec/diagon/paywall",
+        "source": "diagon-package"
+      },
+      {
+        "name": "i2pd",
+        "path": "/usr/sbin/i2pd",
+        "source": "debian-dependency"
+      }
+    ],
+    "config_directories": [
+      "/etc/diagon",
+      "/etc/diagon/i2pd",
+      "/etc/diagon/paywall",
+      "/etc/diagon/store"
+    ],
+    "config_files": [
+      "/etc/diagon/i2pd/i2pd.conf",
+      "/etc/diagon/i2pd/tunnels.conf",
+      "/etc/diagon/paywall/config.yaml",
+      "/etc/diagon/store/config.yaml"
+    ],
+    "log_directories": [
+      "/var/log/diagon/i2pd",
+      "/var/log/diagon/paywall",
+      "/var/log/diagon/store"
+    ],
+    "state_directories": [
+      "/var/lib/diagon/i2pd",
+      "/var/lib/diagon/paywall",
+      "/var/lib/diagon/store"
+    ],
+    "runtime_directories": [
+      "/run/diagon/i2pd",
+      "/run/diagon/paywall",
+      "/run/diagon/store"
+    ]
+  },
+  "service_units": [
+    {
+      "name": "diagon-i2pd.service",
+      "description": "Diagon i2pd service",
+      "after": [
+        "network-online.target"
+      ],
+      "wants": [
+        "network-online.target"
+      ],
+      "wanted_by": [
+        "multi-user.target"
+      ],
+      "restart": "on-failure",
+      "exec_start": [
+        "/usr/sbin/i2pd",
+        "--conf",
+        "/etc/diagon/i2pd/i2pd.conf",
+        "--tunconf",
+        "/etc/diagon/i2pd/tunnels.conf"
+      ],
+      "working_directory": "/var/lib/diagon/i2pd",
+      "read_write_paths": [
+        "/etc/diagon/i2pd",
+        "/run/diagon/i2pd",
+        "/var/lib/diagon/i2pd",
+        "/var/log/diagon/i2pd"
+      ],
+      "unit_file": "[Unit]\nDescription=Diagon i2pd service\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nWorkingDirectory=/var/lib/diagon/i2pd\nExecStart=/usr/sbin/i2pd --conf /etc/diagon/i2pd/i2pd.conf --tunconf /etc/diagon/i2pd/tunnels.conf\nRestart=on-failure\nRestartSec=5s\nReadWritePaths=/etc/diagon/i2pd /run/diagon/i2pd /var/lib/diagon/i2pd /var/log/diagon/i2pd\n\n[Install]\nWantedBy=multi-user.target\n"
+    },
+    {
+      "name": "diagon-paywall.service",
+      "description": "Diagon paywall service",
+      "after": [
+        "diagon-i2pd.service",
+        "network-online.target"
+      ],
+      "requires": [
+        "diagon-i2pd.service"
+      ],
+      "wants": [
+        "network-online.target"
+      ],
+      "wanted_by": [
+        "multi-user.target"
+      ],
+      "restart": "on-failure",
+      "exec_start": [
+        "/usr/libexec/diagon/paywall",
+        "--config",
+        "/etc/diagon/paywall/config.yaml"
+      ],
+      "working_directory": "/var/lib/diagon/paywall",
+      "read_write_paths": [
+        "/etc/diagon/paywall",
+        "/run/diagon/paywall",
+        "/var/lib/diagon/paywall",
+        "/var/log/diagon/paywall"
+      ],
+      "unit_file": "[Unit]\nDescription=Diagon paywall service\nAfter=diagon-i2pd.service network-online.target\nRequires=diagon-i2pd.service\nWants=network-online.target\n\n[Service]\nType=simple\nWorkingDirectory=/var/lib/diagon/paywall\nExecStart=/usr/libexec/diagon/paywall --config /etc/diagon/paywall/config.yaml\nRestart=on-failure\nRestartSec=5s\nReadWritePaths=/etc/diagon/paywall /run/diagon/paywall /var/lib/diagon/paywall /var/log/diagon/paywall\n\n[Install]\nWantedBy=multi-user.target\n"
+    },
+    {
+      "name": "diagon-store.service",
+      "description": "Diagon store service",
+      "after": [
+        "diagon-i2pd.service",
+        "diagon-paywall.service",
+        "network-online.target"
+      ],
+      "requires": [
+        "diagon-i2pd.service",
+        "diagon-paywall.service"
+      ],
+      "wants": [
+        "network-online.target"
+      ],
+      "wanted_by": [
+        "multi-user.target"
+      ],
+      "restart": "on-failure",
+      "exec_start": [
+        "/usr/libexec/diagon/store",
+        "--config",
+        "/etc/diagon/store/config.yaml"
+      ],
+      "working_directory": "/var/lib/diagon/store",
+      "read_write_paths": [
+        "/etc/diagon/store",
+        "/run/diagon/store",
+        "/var/lib/diagon/store",
+        "/var/log/diagon/store"
+      ],
+      "unit_file": "[Unit]\nDescription=Diagon store service\nAfter=diagon-i2pd.service diagon-paywall.service network-online.target\nRequires=diagon-i2pd.service diagon-paywall.service\nWants=network-online.target\n\n[Service]\nType=simple\nWorkingDirectory=/var/lib/diagon/store\nExecStart=/usr/libexec/diagon/store --config /etc/diagon/store/config.yaml\nRestart=on-failure\nRestartSec=5s\nReadWritePaths=/etc/diagon/store /run/diagon/store /var/lib/diagon/store /var/log/diagon/store\n\n[Install]\nWantedBy=multi-user.target\n"
+    }
+  ],
+  "post_install": {
+    "enable_units": [
+      "diagon-i2pd.service",
+      "diagon-paywall.service",
+      "diagon-store.service"
+    ],
+    "start_units": [
+      "diagon-i2pd.service",
+      "diagon-paywall.service",
+      "diagon-store.service"
+    ],
+    "required_files": [
+      "/etc/diagon/i2pd/i2pd.conf",
+      "/etc/diagon/i2pd/tunnels.conf",
+      "/etc/diagon/paywall/config.yaml",
+      "/etc/diagon/store/config.yaml"
+    ],
+    "health_checks": [
+      {
+        "service": "i2pd",
+        "url": "http://127.0.0.1:7070/health"
+      },
+      {
+        "service": "paywall",
+        "url": "http://127.0.0.1:8081/healthz"
+      },
+      {
+        "service": "store",
+        "url": "http://127.0.0.1:8080/healthz"
+      }
+    ],
+    "secret_requirements": [
+      {
+        "name": "PAYWALL_WALLET_RPC_USER",
+        "source": "env",
+        "ref": "PAYWALL_WALLET_RPC_USER",
+        "required": true
+      },
+      {
+        "name": "PAYWALL_WALLET_RPC_PASSWORD",
+        "source": "env",
+        "ref": "PAYWALL_WALLET_RPC_PASSWORD",
+        "required": true
+      },
+      {
+        "name": "STORE_SESSION_SECRET",
+        "source": "file",
+        "ref": "/run/secrets/store-session-secret",
+        "required": true
+      }
+    ],
+    "validation_checks": [
+      {
+        "type": "systemd-enabled",
+        "target": "diagon-i2pd.service",
+        "expect": "enabled"
+      },
+      {
+        "type": "systemd-active",
+        "target": "diagon-i2pd.service",
+        "expect": "active"
+      },
+      {
+        "type": "systemd-enabled",
+        "target": "diagon-paywall.service",
+        "expect": "enabled"
+      },
+      {
+        "type": "systemd-active",
+        "target": "diagon-paywall.service",
+        "expect": "active"
+      },
+      {
+        "type": "systemd-enabled",
+        "target": "diagon-store.service",
+        "expect": "enabled"
+      },
+      {
+        "type": "systemd-active",
+        "target": "diagon-store.service",
+        "expect": "active"
+      },
+      {
+        "type": "file-exists",
+        "target": "/etc/diagon/i2pd/i2pd.conf",
+        "expect": "present"
+      },
+      {
+        "type": "file-exists",
+        "target": "/etc/diagon/i2pd/tunnels.conf",
+        "expect": "present"
+      },
+      {
+        "type": "file-exists",
+        "target": "/etc/diagon/paywall/config.yaml",
+        "expect": "present"
+      },
+      {
+        "type": "file-exists",
+        "target": "/etc/diagon/store/config.yaml",
+        "expect": "present"
+      },
+      {
+        "type": "http-2xx",
+        "target": "http://127.0.0.1:7070/health",
+        "expect": "reachable"
+      },
+      {
+        "type": "http-2xx",
+        "target": "http://127.0.0.1:8081/healthz",
+        "expect": "reachable"
+      },
+      {
+        "type": "http-2xx",
+        "target": "http://127.0.0.1:8080/healthz",
+        "expect": "reachable"
+      }
+    ]
+  },
+  "uninstall": {
+    "stop_units": [
+      "diagon-store.service",
+      "diagon-paywall.service",
+      "diagon-i2pd.service"
+    ],
+    "disable_units": [
+      "diagon-store.service",
+      "diagon-paywall.service",
+      "diagon-i2pd.service"
+    ],
+    "preserve_paths": [
+      "/etc/diagon",
+      "/var/lib/diagon",
+      "/var/log/diagon"
+    ],
+    "remove_paths": [
+      "/run/diagon"
+    ],
+    "notes": [
+      "Stop services in reverse dependency order before removing package-owned files.",
+      "Preserve operator-managed configuration and application state under /etc/diagon and /var/lib/diagon.",
+      "Retain logs under /var/log/diagon for rollback analysis; only runtime sockets and pid files under /run/diagon are removed."
+    ]
+  }
+}

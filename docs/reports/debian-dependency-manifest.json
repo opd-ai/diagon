@@ -1,0 +1,29 @@
+{
+  "environment": "debian-12",
+  "debian_version": "12",
+  "debian_codename": "bookworm",
+  "package_dependencies": [
+    {
+      "name": "debian-archive-keyring",
+      "source": "integration_matrix.package_dependencies"
+    },
+    {
+      "name": "simple-cdd",
+      "source": "integration_matrix.package_dependencies"
+    }
+  ],
+  "component_package_constraints": [
+    {
+      "component": "i2pd",
+      "package": "i2pd",
+      "version": "2.54.0-1",
+      "codename": "bookworm",
+      "source": "integration_matrix.components.i2pd.build_input"
+    }
+  ],
+  "verification_checks": [
+    "Install all package_dependencies on Debian using apt-get install.",
+    "Verify each package dependency is installed via dpkg-query status checks.",
+    "Verify each component package constraint codename aligns with debian_codename."
+  ]
+}

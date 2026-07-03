@@ -1,0 +1,70 @@
+{
+  "store": {
+    "config_path": "/etc/diagon/store/config.yaml",
+    "listen_host": "127.0.0.1",
+    "listen_port": 8080,
+    "health_url": "http://127.0.0.1:8080/healthz",
+    "paywall_endpoint": "http://127.0.0.1:8081/api/v1/payments",
+    "requires_external_i2p_dependency": false,
+    "secret_refs": [
+      "STORE_SESSION_SECRET"
+    ],
+    "i2p_inbound_endpoints": [
+      "http://127.0.0.1:18080"
+    ],
+    "i2p_paywall_route_endpoints": [
+      "http://127.0.0.1:18081"
+    ],
+    "additional_settings": {
+      "smoke_checkout_path": "/checkout"
+    }
+  },
+  "paywall": {
+    "config_path": "/etc/diagon/paywall/config.yaml",
+    "listen_host": "127.0.0.1",
+    "listen_port": 8081,
+    "health_url": "http://127.0.0.1:8081/healthz",
+    "wallet_mode": "stubbed",
+    "wallet_rpc_url": "http://127.0.0.1:18089/json_rpc",
+    "secret_refs": [
+      "PAYWALL_WALLET_RPC_USER",
+      "PAYWALL_WALLET_RPC_PASSWORD"
+    ],
+    "additional_settings": {
+      "smoke_payment_path": "/pay"
+    }
+  },
+  "i2pd": {
+    "config_path": "/etc/diagon/i2pd/i2pd.conf",
+    "tunnel_config_path": "/etc/diagon/i2pd/tunnels.conf",
+    "listen_host": "127.0.0.1",
+    "listen_port": 7070,
+    "health_url": "http://127.0.0.1:7070/health",
+    "tunnels": [
+      {
+        "name": "store-http",
+        "type": "http",
+        "listen": "127.0.0.1:18080",
+        "target": "127.0.0.1:8080",
+        "target_service": "store"
+      },
+      {
+        "name": "paywall-http",
+        "type": "http",
+        "listen": "127.0.0.1:18081",
+        "target": "127.0.0.1:8081",
+        "target_service": "paywall"
+      }
+    ],
+    "startup_sequence": [
+      "i2pd",
+      "paywall",
+      "store",
+      "diagonctl"
+    ],
+    "expected_tunnels": [
+      "store-http",
+      "paywall-http"
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "bundle_name": "debian-compose-fallback",
+  "environment": "debian-12",
+  "debian_codename": "bookworm",
+  "compose": {
+    "path": "/opt/diagon/compose/compose.yaml",
+    "content": "version: \"3.9\"\nservices:\n  i2pd:\n    image: ghcr.io/purplei2p/i2pd:2.54.0\n    container_name: diagon-i2pd\n    restart: unless-stopped\n    network_mode: host\n    command: [\"/usr/sbin/i2pd\", \"--conf\", \"/etc/diagon/i2pd/i2pd.conf\", \"--tunconf\", \"/etc/diagon/i2pd/tunnels.conf\"]\n    volumes:\n      - /etc/diagon/i2pd:/etc/diagon/i2pd:rw\n      - /var/lib/diagon/i2pd:/var/lib/diagon/i2pd:rw\n      - /var/log/diagon/i2pd:/var/log/diagon/i2pd:rw\n    healthcheck:\n      test: [\"CMD-SHELL\", \"wget -qO- http://127.0.0.1:7070/health \u003e/dev/null 2\u003e\u00261 || exit 1\"]\n      interval: 5s\n      timeout: 2s\n      retries: 12\n\n  paywall:\n    image: ghcr.io/opd-ai/paywall:main\n    container_name: diagon-paywall\n    restart: unless-stopped\n    network_mode: host\n    env_file:\n      - /etc/diagon/compose/diagon-compose.env\n    depends_on:\n      i2pd:\n        condition: service_healthy\n    command: [\"/usr/libexec/diagon/paywall\", \"--config\", \"/etc/diagon/paywall/config.yaml\"]\n    volumes:\n      - /etc/diagon/paywall:/etc/diagon/paywall:rw\n      - /var/lib/diagon/paywall:/var/lib/diagon/paywall:rw\n      - /var/log/diagon/paywall:/var/log/diagon/paywall:rw\n    healthcheck:\n      test: [\"CMD-SHELL\", \"wget -qO- http://127.0.0.1:8081/healthz \u003e/dev/null 2\u003e\u00261 || exit 1\"]\n      interval: 5s\n      timeout: 2s\n      retries: 12\n\n  store:\n    image: ghcr.io/opd-ai/store:main\n    container_name: diagon-store\n    restart: unless-stopped\n    network_mode: host\n    env_file:\n      - /etc/diagon/compose/diagon-compose.env\n    depends_on:\n      i2pd:\n        condition: service_healthy\n      paywall:\n        condition: service_healthy\n    command: [\"/usr/libexec/diagon/store\", \"--config\", \"/etc/diagon/store/config.yaml\"]\n    volumes:\n      - /etc/diagon/store:/etc/diagon/store:rw\n      - /var/lib/diagon/store:/var/lib/diagon/store:rw\n      - /var/log/diagon/store:/var/log/diagon/store:rw\n      - /run/secrets:/run/secrets:ro\n    healthcheck:\n      test: [\"CMD-SHELL\", \"wget -qO- http://127.0.0.1:8080/healthz \u003e/dev/null 2\u003e\u00261 || exit 1\"]\n      interval: 5s\n      timeout: 2s\n      retries: 12\n\n# Startup order contract\n# - i2pd\n# - paywall\n# - store\n"
+  },
+  "environment_template": {
+    "path": "/etc/diagon/compose/diagon-compose.env.example",
+    "content": "# Diagon fallback compose environment template\n# Copy to /etc/diagon/compose/diagon-compose.env and fill required values.\nPAYWALL_WALLET_RPC_PASSWORD=\u003crequired\u003e\nPAYWALL_WALLET_RPC_USER=\u003crequired\u003e\nSTORE_SESSION_SECRET_FILE=/run/secrets/store-session-secret\nPAYWALL_WALLET_MODE=stubbed\nPAYWALL_WALLET_RPC_URL=http://127.0.0.1:18089/json_rpc\nSTORE_PAYWALL_ENDPOINT=http://127.0.0.1:8081/api/v1/payments\n"
+  },
+  "systemd_unit": {
+    "path": "/etc/systemd/system/diagon-compose.service",
+    "content": "[Unit]\nDescription=Diagon fallback compose stack\nAfter=network-online.target docker.service\nWants=network-online.target\nRequires=docker.service\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nWorkingDirectory=/opt/diagon/compose\nExecStart=/usr/bin/docker compose --env-file /etc/diagon/compose/diagon-compose.env -f /opt/diagon/compose/compose.yaml up -d\nExecStop=/usr/bin/docker compose --env-file /etc/diagon/compose/diagon-compose.env -f /opt/diagon/compose/compose.yaml down\nTimeoutStartSec=180\nTimeoutStopSec=120\n\n[Install]\nWantedBy=multi-user.target\n"
+  },
+  "manual_install_guide": {
+    "path": "/opt/diagon/compose/MANUAL-INSTALL.md",
+    "content": "# Diagon Debian Fallback Compose Bundle\n\nThis interim bundle is used when full Debian packaging cannot be shipped on schedule.\n\n## Files\n\n- compose: `/opt/diagon/compose/compose.yaml`\n- environment template: `/etc/diagon/compose/diagon-compose.env.example`\n- systemd unit: `/etc/systemd/system/diagon-compose.service`\n- manual guide: `/opt/diagon/compose/MANUAL-INSTALL.md`\n\n## Startup Sequence\n\n- i2pd\n- paywall\n- store\n- diagonctl\n\n## Manual Install Steps\n\n1. Install Docker and Compose plugin on Debian: sudo apt-get update \u0026\u0026 sudo apt-get install -y docker.io docker-compose-plugin ca-certificates curl\n2. Create runtime directories: sudo install -d -m 755 /opt/diagon/compose /etc/diagon/compose /etc/diagon/i2pd /etc/diagon/paywall /etc/diagon/store /var/lib/diagon /var/log/diagon\n3. Write compose.yaml, diagon-compose.env, and diagon-compose.service to the emitted file paths\n4. Create required secrets such as /run/secrets/store-session-secret and populate PAYWALL_WALLET_RPC_USER/PAYWALL_WALLET_RPC_PASSWORD\n5. Reload systemd and start the stack: sudo systemctl daemon-reload \u0026\u0026 sudo systemctl enable --now diagon-compose.service\n6. Validate health endpoints and tunnel listeners using the emitted validation checks\n\n## Verification Commands\n\n```bash\ndocker compose -f /opt/diagon/compose/compose.yaml config -q\nsystemctl is-active diagon-compose.service\nnc -z 127.0.0.1:18080\nnc -z 127.0.0.1:18081\ncurl -fsS http://127.0.0.1:7070/health\ncurl -fsS http://127.0.0.1:8081/healthz\ncurl -fsS http://127.0.0.1:8080/healthz\n```\n\n## Expected Tunnel Listeners\n\n- `127.0.0.1:18080`\n- `127.0.0.1:18081`\n\n## Service Contract\n\n- services: 3\n- i2pd tunnels: 2\n- integration environment: `debian-12`\n"
+  },
+  "validation_checks": [
+    {
+      "name": "compose-model",
+      "command": "docker compose -f /opt/diagon/compose/compose.yaml config -q",
+      "expect": "exit code 0"
+    },
+    {
+      "name": "stack-active",
+      "command": "systemctl is-active diagon-compose.service",
+      "expect": "active"
+    },
+    {
+      "name": "tunnel-listener-store-http",
+      "command": "nc -z 127.0.0.1:18080",
+      "expect": "listener reachable"
+    },
+    {
+      "name": "tunnel-listener-paywall-http",
+      "command": "nc -z 127.0.0.1:18081",
+      "expect": "listener reachable"
+    },
+    {
+      "name": "i2pd-health",
+      "command": "curl -fsS http://127.0.0.1:7070/health",
+      "expect": "2xx"
+    },
+    {
+      "name": "paywall-health",
+      "command": "curl -fsS http://127.0.0.1:8081/healthz",
+      "expect": "2xx"
+    },
+    {
+      "name": "store-health",
+      "command": "curl -fsS http://127.0.0.1:8080/healthz",
+      "expect": "2xx"
+    }
+  ],
+  "manual_install_steps": [
+    "Install Docker and Compose plugin on Debian: sudo apt-get update \u0026\u0026 sudo apt-get install -y docker.io docker-compose-plugin ca-certificates curl",
+    "Create runtime directories: sudo install -d -m 755 /opt/diagon/compose /etc/diagon/compose /etc/diagon/i2pd /etc/diagon/paywall /etc/diagon/store /var/lib/diagon /var/log/diagon",
+    "Write compose.yaml, diagon-compose.env, and diagon-compose.service to the emitted file paths",
+    "Create required secrets such as /run/secrets/store-session-secret and populate PAYWALL_WALLET_RPC_USER/PAYWALL_WALLET_RPC_PASSWORD",
+    "Reload systemd and start the stack: sudo systemctl daemon-reload \u0026\u0026 sudo systemctl enable --now diagon-compose.service",
+    "Validate health endpoints and tunnel listeners using the emitted validation checks"
+  ],
+  "success_criteria": [
+    "docker compose config validates the emitted compose bundle",
+    "i2pd, paywall, and store services start in dependency order",
+    "Store and Paywall local health endpoints return 2xx",
+    "i2pd tunnel listeners are reachable on the expected local ports"
+  ],
+  "pinned_image_reference": {
+    "i2pd": "ghcr.io/purplei2p/i2pd:2.54.0",
+    "paywall": "ghcr.io/opd-ai/paywall:main",
+    "store": "ghcr.io/opd-ai/store:main"
+  }
+}
