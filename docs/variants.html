@@ -4,153 +4,126 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Variants — diagon</title>
-  <meta name="description" content="Compare diagon deployment variants: the Debian 12 baseline, the OpenBSD autoinstall image, and the interim Debian compose/service fallback bundle.">
-  <meta name="theme-color" content="#6a3fb5">
+  <meta name="description" content="Compare diagon deployment variants: the Debian 12 baseline, the OpenBSD autoinstall image, and the interim Debian compose/service fallback.">
+  <meta name="theme-color" content="#c2410c">
   <link rel="canonical" href="https://opd-ai.github.io/diagon/variants.html">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
-  <header class="site-header">
-    <nav class="nav" aria-label="Primary">
-      <a class="brand" href="index.html"><span class="mark" aria-hidden="true">d</span> diagon</a>
-      <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">
-        <span aria-hidden="true">☰</span> Menu
-      </button>
-      <ul class="nav-links" id="nav-links">
-        <li><a href="index.html">Home</a></li>
-        <li><a href="getting-started.html">Get Started</a></li>
-        <li><a href="installation.html">Installation</a></li>
-        <li><a href="configuration.html">Configuration</a></li>
-        <li><a href="variants.html" aria-current="page">Variants</a></li>
-        <li><a href="faq.html">FAQ</a></li>
-        <li><a href="about.html">About</a></li>
-      </ul>
-    </nav>
+
+  <header class="topbar">
+    <a class="brand" href="index.html">diagon<span class="cursor" aria-hidden="true"></span></a>
+    <span class="strap">Monero · I2P · Debian</span>
+    <span class="spacer"></span>
+    <a class="top-link" href="https://github.com/opd-ai/diagon">GitHub ↗</a>
+    <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">menu</button>
   </header>
 
-  <main id="main">
-    <div class="container">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <ol>
-          <li><a href="index.html">Home</a></li>
-          <li aria-current="page">Variants</li>
-        </ol>
-      </nav>
-
-      <h1>Variants and editions</h1>
-      <p class="lead">diagon ships one shared profile and toolchain across multiple deployment targets. Each variant reuses the same validation policy, service contracts, and <code>diagonctl</code> — only the packaging and boot mechanism differ.</p>
-
-      <h2 id="compare">At a glance</h2>
-      <div class="table-wrap">
-        <table>
-          <caption class="sr-only">Comparison of diagon variants</caption>
-          <thead>
-            <tr>
-              <th scope="col">Variant</th>
-              <th scope="col">Platform</th>
-              <th scope="col">Delivery</th>
-              <th scope="col">Best for</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Debian baseline</td>
-              <td>Debian 12 (bookworm)</td>
-              <td>simple-cdd installer ISO + systemd units</td>
-              <td>The primary, CI-proven single-host deployment</td>
-            </tr>
-            <tr>
-              <td>OpenBSD variant</td>
-              <td>OpenBSD</td>
-              <td>Bootable raw disk image via autoinstall(8)</td>
-              <td>Operators who prefer OpenBSD's base system</td>
-            </tr>
-            <tr>
-              <td>Compose fallback</td>
-              <td>Debian</td>
-              <td>Pinned-image compose.yaml + systemd unit</td>
-              <td>Interim delivery when full packaging is unavailable</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h2 id="debian">Debian baseline</h2>
-      <p>The default and most thoroughly validated variant. It targets Debian 12 (bookworm), pins packaging dependencies through <code>.github/integration-matrix.json</code>, and produces an installer ISO via <code>simple-cdd</code>.</p>
-      <h3>Differences from other variants</h3>
-      <ul>
-        <li>Uses the Debian preseed/package profile (<code>myprofile.preseed</code>, <code>myprofile.packages</code>).</li>
-        <li>Installs systemd units: <code>diagon-i2pd.service</code>, <code>diagon-paywall.service</code>, <code>diagon-store.service</code>.</li>
-        <li>Full eight-stage CI pipeline including Debian packaging verification.</li>
-      </ul>
-      <h3>When to choose it</h3>
-      <p>Choose the Debian baseline for production or evaluation on Debian hosts — it is the reference deployment and receives the most complete CI coverage.</p>
-
-      <h2 id="openbsd">OpenBSD variant</h2>
-      <p>The OpenBSD variant runs a separate CI pipeline and emits a directly bootable/installable raw disk image via OpenBSD <code>autoinstall(8)</code> under QEMU. It reuses the shared profile, validation policy, service contracts, bootstrap profile, and <code>diagonctl</code> tooling.</p>
-      <h3>Differences from Debian</h3>
-      <ul>
-        <li>Driven by a shared OpenBSD config set: <code>install.conf</code> (autoinstall response, the preseed analog), <code>install.site</code> (a <code>pkg_add</code> hook), and <code>pkg.list</code>.</li>
-        <li>Uses a dedicated build matrix (<code>.github/openbsd-matrix.json</code>) with fields for OpenBSD version, architecture, and mirror.</li>
-        <li>Delivered as a raw <code>.img</code> disk image rather than an installer ISO.</li>
-      </ul>
-      <h3>When to choose it</h3>
-      <p>Choose OpenBSD when you prefer its base system and packaging model, or need a directly bootable image. Configuration intent mirrors the Debian preseed/package set, so the marketplace topology is identical.</p>
-
-      <h2 id="compose">Compose/service fallback</h2>
-      <p>An interim deliverable for Debian hosts if full packaging slips. It is CI-validated and comes with documented manual install steps.</p>
-      <h3>What it includes</h3>
-      <ul>
-        <li>A pinned-image <code>compose.yaml</code> for <code>i2pd</code>, <code>paywall</code>, and <code>store</code> with dependency-aware startup ordering.</li>
-        <li>A <code>diagon-compose.service</code> systemd unit for host-level lifecycle control of the compose stack.</li>
-        <li>A secrets-aware environment template and a manual install guide.</li>
-      </ul>
-      <h3>When to choose it</h3>
-      <p>Choose the compose fallback for a quick, reproducible bring-up on Debian while the full installer package is being finalized. Generate it with <code>--emit-debian-compose-bundle-file</code> (see the <a href="installation.html#compose-fallback">Installation guide</a>).</p>
-
-      <div class="callout callout-info">
-        <p class="callout-title">Shared configuration across variants</p>
-        <p>Whichever variant you pick, the service topology, health endpoints, startup order, and i2pd tunnel mappings are validated by the same <code>diagonctl</code> contracts described on the <a href="configuration.html">Configuration</a> page.</p>
-      </div>
-
-      <h2 id="hardware">Hardware recommendations</h2>
-      <p>All variants target a single host with local-only services. For any variant, ensure the host can run i2pd plus the marketplace services concurrently and supports the network configuration needed for live i2pd tunnels. See the <a href="installation.html#requirements">Installation requirements</a> for the baseline package and toolchain list.</p>
-    </div>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div>
-          <h4>Documentation</h4>
+  <div class="layout">
+    <aside class="sidebar" id="nav-links">
+      <nav aria-label="Documentation">
+        <div class="nav-group">
+          <p class="nav-label">Guide</p>
           <ul>
-            <li><a href="getting-started.html">Get Started</a></li>
-            <li><a href="installation.html">Installation</a></li>
-            <li><a href="configuration.html">Configuration</a></li>
-            <li><a href="variants.html">Variants</a></li>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="getting-started.html">Get started</a></li>
+            <li><a href="installation.html">Install</a></li>
+            <li><a href="configuration.html">Configure</a></li>
+            <li><a href="variants.html" aria-current="page">Variants</a></li>
           </ul>
         </div>
-        <div>
-          <h4>Project</h4>
+        <div class="nav-group">
+          <p class="nav-label">Reference</p>
           <ul>
-            <li><a href="about.html">About</a></li>
+            <li><a href="reports.html">Reports</a></li>
             <li><a href="faq.html">FAQ</a></li>
+            <li><a href="about.html">About</a></li>
+          </ul>
+        </div>
+        <div class="nav-group">
+          <p class="nav-label">External</p>
+          <ul>
             <li><a href="https://github.com/opd-ai/diagon">Repository</a></li>
             <li><a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">Roadmap</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/issues">Issues</a></li>
           </ul>
         </div>
-        <div>
-          <h4>Support</h4>
-          <ul>
-            <li><a href="https://github.com/opd-ai/diagon/issues">Issue tracker</a></li>
-            <li><a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">License (MIT)</a></li>
-          </ul>
+      </nav>
+    </aside>
+
+    <main id="main">
+      <div class="content">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <ol><li><a href="index.html">Overview</a></li><li aria-current="page">Variants</li></ol>
+        </nav>
+
+        <span class="kicker">Same stack, three ways to ship it</span>
+        <h1>Variants</h1>
+        <p class="lead">diagon ships one shared profile and toolchain across deployment targets. Each variant reuses the same validation policy, service contract, and <code>diagonctl</code> — only the packaging and boot mechanism differ.</p>
+
+        <h2 id="compare"><span class="n">01</span>At a glance</h2>
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Comparison of variants</caption>
+            <thead><tr><th scope="col">Variant</th><th scope="col">Platform</th><th scope="col">Delivery</th><th scope="col">Best for</th></tr></thead>
+            <tbody>
+              <tr><td>Debian baseline</td><td>Debian 12 (bookworm)</td><td>simple-cdd installer ISO + systemd units</td><td>The primary single-host deployment</td></tr>
+              <tr><td>OpenBSD variant</td><td>OpenBSD</td><td>Bootable raw disk image via autoinstall(8)</td><td>Operators who prefer OpenBSD's base system</td></tr>
+              <tr><td>Compose fallback</td><td>Debian</td><td>Pinned-image compose.yaml + systemd unit</td><td>Interim delivery before full packaging</td></tr>
+            </tbody>
+          </table>
         </div>
+
+        <h2 id="debian"><span class="n">02</span>Debian baseline</h2>
+        <p>The default and most complete variant. It targets Debian 12 (bookworm), pins packaging dependencies through the integration matrix, and produces an installer ISO via <code>simple-cdd</code>.</p>
+        <h3>Differences</h3>
+        <ul>
+          <li>Uses the Debian preseed/package profile (<code>myprofile.preseed</code>, <code>myprofile.packages</code>).</li>
+          <li>Installs systemd units: <code>diagon-i2pd</code>, <code>diagon-paywall</code>, <code>diagon-store</code>.</li>
+        </ul>
+        <h3>Choose it when</h3>
+        <p>You are deploying to a Debian host and want the reference experience.</p>
+
+        <h2 id="openbsd"><span class="n">03</span>OpenBSD variant</h2>
+        <p>Emits a directly bootable/installable raw disk image via OpenBSD <code>autoinstall(8)</code>, reusing the shared profile, policy, contract, bootstrap profile, and <code>diagonctl</code>.</p>
+        <h3>Differences</h3>
+        <ul>
+          <li>Driven by <code>install.conf</code> (autoinstall response — the preseed analog), <code>install.site</code> (a <code>pkg_add</code> hook), and <code>pkg.list</code>.</li>
+          <li>Uses a dedicated build matrix with OpenBSD version, architecture, and mirror.</li>
+          <li>Delivered as a raw <code>.img</code> disk image rather than an installer ISO.</li>
+        </ul>
+        <h3>Choose it when</h3>
+        <p>You prefer the OpenBSD base system or need a directly bootable image. The marketplace topology is identical to Debian.</p>
+
+        <h2 id="compose"><span class="n">04</span>Compose fallback</h2>
+        <p>An interim deliverable for Debian if full packaging slips, with documented manual install steps.</p>
+        <h3>Includes</h3>
+        <ul>
+          <li>A pinned-image <code>compose.yaml</code> for <code>i2pd</code>, <code>paywall</code>, and <code>store</code> with dependency-aware ordering.</li>
+          <li>A <code>diagon-compose.service</code> systemd unit for host-level lifecycle control.</li>
+          <li>A secrets-aware environment template and a manual install guide.</li>
+        </ul>
+        <h3>Choose it when</h3>
+        <p>You want a quick, reproducible bring-up on Debian while the installer package is finalized. Generate it with <code>--emit-debian-compose-bundle-file</code> — see <a href="reports.html#wiring">Reports</a>.</p>
+
+        <div class="callout callout-note">
+          <span class="tag">Shared</span>
+          <p>Whichever variant you pick, the topology, health endpoints, startup order, and i2pd tunnel mappings are validated by the same <code>diagonctl</code> contracts described in <a href="configuration.html">Configure</a>.</p>
+        </div>
+
+        <footer class="page-footer">
+          <div class="cols">
+            <a href="installation.html">Install</a>
+            <a href="configuration.html">Configure</a>
+            <a href="reports.html">Reports</a>
+            <a href="https://github.com/opd-ai/diagon">GitHub</a>
+          </div>
+          <p>diagon — MIT licensed.</p>
+        </footer>
       </div>
-      <p class="footer-bottom">diagon is released under the MIT License. Documentation built as static HTML — no trackers, no external dependencies.</p>
-    </div>
-  </footer>
+    </main>
+  </div>
   <script src="js/script.js" defer></script>
 </body>
 </html>

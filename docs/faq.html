@@ -4,252 +4,144 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FAQ — diagon</title>
-  <meta name="description" content="Frequently asked questions about diagon: installation, configuration, i2pd and Monero, variants, CI, and support — with client-side search.">
-  <meta name="theme-color" content="#6a3fb5">
+  <meta name="description" content="Frequently asked questions about diagon: general, installation, configuration, i2pd and Monero, variants, reports, and support — with client-side search.">
+  <meta name="theme-color" content="#c2410c">
   <link rel="canonical" href="https://opd-ai.github.io/diagon/faq.html">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
-  <header class="site-header">
-    <nav class="nav" aria-label="Primary">
-      <a class="brand" href="index.html"><span class="mark" aria-hidden="true">d</span> diagon</a>
-      <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">
-        <span aria-hidden="true">☰</span> Menu
-      </button>
-      <ul class="nav-links" id="nav-links">
-        <li><a href="index.html">Home</a></li>
-        <li><a href="getting-started.html">Get Started</a></li>
-        <li><a href="installation.html">Installation</a></li>
-        <li><a href="configuration.html">Configuration</a></li>
-        <li><a href="variants.html">Variants</a></li>
-        <li><a href="faq.html" aria-current="page">FAQ</a></li>
-        <li><a href="about.html">About</a></li>
-      </ul>
-    </nav>
+
+  <header class="topbar">
+    <a class="brand" href="index.html">diagon<span class="cursor" aria-hidden="true"></span></a>
+    <span class="strap">Monero · I2P · Debian</span>
+    <span class="spacer"></span>
+    <a class="top-link" href="https://github.com/opd-ai/diagon">GitHub ↗</a>
+    <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">menu</button>
   </header>
 
-  <main id="main">
-    <div class="container">
-      <nav class="breadcrumb" aria-label="Breadcrumb">
-        <ol>
-          <li><a href="index.html">Home</a></li>
-          <li aria-current="page">FAQ</li>
-        </ol>
-      </nav>
-
-      <h1>Frequently asked questions</h1>
-      <p class="lead">Answers to common questions about installing, configuring, and operating diagon. Use the search box to filter across all categories.</p>
-
-      <div class="faq-search">
-        <label for="faq-search-input">Search the FAQ</label>
-        <input type="search" id="faq-search-input" placeholder="Type to filter questions and answers…" autocomplete="off" aria-describedby="faq-search-hint">
-        <p id="faq-search-hint" class="sr-only">Results filter as you type. Matching questions expand automatically.</p>
-      </div>
-      <p id="faq-empty" class="faq-empty" hidden>No questions match your search. Try a different term, or <a href="https://github.com/opd-ai/diagon/issues">open an issue</a>.</p>
-
-      <section class="faq-category" aria-labelledby="cat-general">
-        <h2 id="cat-general">General</h2>
-
-        <details class="faq-item">
-          <summary>What is diagon?</summary>
-          <div class="faq-answer"><p>diagon is a plug-and-play Monero marketplace stack for Debian. It combines the Diagon orchestrator, Store, and Paywall over a locally running i2pd router, with a minimal CI path that proves the system can build, boot, and pass core integration checks.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>What components make up the stack?</summary>
-          <div class="faq-answer"><p>Four components: <strong>Diagon</strong> (orchestrator and operator entrypoint), <strong>Store</strong> (marketplace frontend/backend), <strong>Paywall</strong> (Monero payment gating and settlement), and <strong>i2pd</strong> (a local I2P router daemon providing connectivity).</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>Is this production-ready?</summary>
-          <div class="faq-answer"><p>The roadmap targets a baseline single-host deployment with CI-proven build, boot, integration, contract, smoke, and packaging checks. Production hardening beyond baseline security controls is explicitly out of scope for the current roadmap.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>What deployment model does diagon assume?</summary>
-          <div class="faq-answer"><p>A single host running all components as local services. i2pd starts first and publishes local tunnel endpoints; Store and Paywall bind to local interfaces and route I2P traffic via i2pd tunnels.</p></div>
-        </details>
-      </section>
-
-      <section class="faq-category" aria-labelledby="cat-install">
-        <h2 id="cat-install">Installation</h2>
-
-        <details class="faq-item">
-          <summary>Which operating systems are supported?</summary>
-          <div class="faq-answer"><p>Debian 12 (bookworm) is the baseline. An OpenBSD variant is also available, delivered as a bootable raw disk image built via OpenBSD autoinstall(8).</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>What packages are required?</summary>
-          <div class="faq-answer"><p>The baseline requires <code>curl</code>, <code>openssh-server</code>, and <code>i2pd</code>. The validation policy enforces these as required packages.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>How do I install on Debian?</summary>
-          <div class="faq-answer"><p>Install the prerequisites with apt, clone the repository, validate the profile with <code>diagonctl</code>, and generate the Debian package baseline. See the <a href="installation.html#debian">Installation guide</a> for the full procedure.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>Is there an option if the full installer package isn't ready?</summary>
-          <div class="faq-answer"><p>Yes. A CI-validated compose/service fallback bundle for Debian is available with documented manual install steps. Generate it with <code>--emit-debian-compose-bundle-file</code>.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>How do I verify a successful installation?</summary>
-          <div class="faq-answer"><p>Run <code>diagonctl</code> with <code>--probe-live</code>. A healthy install shows services enabled and started in order, config files present, local health endpoints returning 2xx, i2pd tunnel listeners reachable, and an aggregated health view reporting all components ready.</p></div>
-        </details>
-      </section>
-
-      <section class="faq-category" aria-labelledby="cat-config">
-        <h2 id="cat-config">Configuration</h2>
-
-        <details class="faq-item">
-          <summary>Where do configuration files live?</summary>
-          <div class="faq-answer"><p>Under <code>profiles/</code> — including the package list, preseed answers, validation policy, service contract, and the single-host bootstrap profile. See the <a href="configuration.html#file-locations">Configuration reference</a>.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>How are secrets handled?</summary>
-          <div class="faq-answer"><p>Secrets are injected from environment variables or secure file paths and are never hardcoded. The only manual operator input beyond profile defaults should be secrets, such as a Monero wallet RPC endpoint.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>What is the policy file format?</summary>
-          <div class="faq-answer"><p>A JSON contract with <code>required_packages</code> and <code>required_preseed</code>. The sentinel <code>*non-empty*</code> means a preseed key must exist and hold a non-empty value.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>What startup order does diagon enforce?</summary>
-          <div class="faq-answer"><p>Deterministic order: <code>i2pd</code>, then <code>paywall</code>, then <code>store</code>, then the <code>diagonctl</code> orchestration check. i2pd must always start before Store and Paywall.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>What does strict mode do?</summary>
-          <div class="faq-answer"><p>Strict mode (<code>--strict</code>) promotes warnings — such as wildcard package usage — into errors, which is useful for CI-grade validation.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>Why must endpoints be local-only?</summary>
-          <div class="faq-answer"><p>Listeners and health endpoints must use <code>localhost</code>, <code>127.0.0.1</code>, or <code>::1</code>. External reachability is provided exclusively through i2pd tunnels, keeping services off public interfaces.</p></div>
-        </details>
-      </section>
-
-      <section class="faq-category" aria-labelledby="cat-network">
-        <h2 id="cat-network">i2pd &amp; Monero</h2>
-
-        <details class="faq-item">
-          <summary>Which i2pd tunnel types are supported?</summary>
-          <div class="faq-answer"><p>The service contract validates these tunnel types: <code>client</code>, <code>http</code>, <code>http-proxy</code>, <code>socks</code>, and <code>server</code>. Both Store and Paywall require tunnel mappings.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>Do I need a Monero wallet to test?</summary>
-          <div class="faq-answer"><p>No. Paywall supports a stubbed wallet mode for CI and local bootstrap. For production, use the wallet validation checklist to verify Monero wallet RPC readiness and paywall settlement.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>How do I validate a production Monero wallet?</summary>
-          <div class="faq-answer"><p>Generate the production wallet validation checklist with <code>--emit-wallet-validation-checklist-file</code>. It captures secrets preflight, Monero wallet RPC probes, and paywall settlement verification commands.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>How does diagon handle i2pd startup races?</summary>
-          <div class="faq-answer"><p>Runtime readiness checks use capped exponential backoff between attempts, and CI includes a readiness-timeout regression that fails if a required service never becomes ready. Tune <code>--probe-timeout</code> and <code>--probe-interval</code> for slower hosts.</p></div>
-        </details>
-      </section>
-
-      <section class="faq-category" aria-labelledby="cat-variants">
-        <h2 id="cat-variants">Variants</h2>
-
-        <details class="faq-item">
-          <summary>What is the difference between the Debian and OpenBSD variants?</summary>
-          <div class="faq-answer"><p>Both reuse the same profile, policy, contracts, and <code>diagonctl</code> tooling. Debian ships an installer ISO plus systemd units; OpenBSD runs a separate CI pipeline and produces a bootable raw disk image via autoinstall(8). See <a href="variants.html">Variants</a>.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>When should I use the compose fallback instead of the full package?</summary>
-          <div class="faq-answer"><p>Use the compose fallback for a quick, reproducible bring-up on Debian while the full installer package is being finalized. It is CI-validated and includes a manual install guide.</p></div>
-        </details>
-      </section>
-
-      <section class="faq-category" aria-labelledby="cat-ci">
-        <h2 id="cat-ci">CI &amp; contributing</h2>
-
-        <details class="faq-item">
-          <summary>What does the CI pipeline check?</summary>
-          <div class="faq-answer"><p>An eight-stage pipeline: static checks, artifact builds, unit tests, integration bootstrap and readiness probes, contract tests, end-to-end smoke, Debian packaging verification, and checksum/release bundle publication. Merge is blocked unless Stages 1–7 pass; release is blocked unless Stage 8 passes.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>How do I run the tests locally?</summary>
-          <div class="faq-answer"><p>Run <code>go test ./...</code> from the repository root.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>Where is the integration matrix defined?</summary>
-          <div class="faq-answer"><p>In <code>.github/integration-matrix.json</code>, which pins the Debian baseline, packaging dependencies, upstream build inputs, and service-contract fixtures used in CI.</p></div>
-        </details>
-      </section>
-
-      <section class="faq-category" aria-labelledby="cat-support">
-        <h2 id="cat-support">Support</h2>
-
-        <details class="faq-item">
-          <summary>Where do I report bugs or request features?</summary>
-          <div class="faq-answer"><p>Open an issue on the <a href="https://github.com/opd-ai/diagon/issues">GitHub issue tracker</a>.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>Where can I read the project roadmap?</summary>
-          <div class="faq-answer"><p>The full roadmap, including phases and definition of done, is in <a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">ROADMAP.md</a>.</p></div>
-        </details>
-
-        <details class="faq-item">
-          <summary>What license is diagon released under?</summary>
-          <div class="faq-answer"><p>The MIT License. See the <a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">LICENSE file</a> and the <a href="about.html">About</a> page.</p></div>
-        </details>
-      </section>
-
-      <div class="callout callout-info">
-        <p class="callout-title">Still stuck?</p>
-        <p>If your question isn't answered here, <a href="https://github.com/opd-ai/diagon/issues">open an issue</a> so we can help and improve this FAQ.</p>
-      </div>
-    </div>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div>
-          <h4>Documentation</h4>
+  <div class="layout">
+    <aside class="sidebar" id="nav-links">
+      <nav aria-label="Documentation">
+        <div class="nav-group">
+          <p class="nav-label">Guide</p>
           <ul>
-            <li><a href="getting-started.html">Get Started</a></li>
-            <li><a href="installation.html">Installation</a></li>
-            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="getting-started.html">Get started</a></li>
+            <li><a href="installation.html">Install</a></li>
+            <li><a href="configuration.html">Configure</a></li>
             <li><a href="variants.html">Variants</a></li>
           </ul>
         </div>
-        <div>
-          <h4>Project</h4>
+        <div class="nav-group">
+          <p class="nav-label">Reference</p>
           <ul>
+            <li><a href="reports.html">Reports</a></li>
+            <li><a href="faq.html" aria-current="page">FAQ</a></li>
             <li><a href="about.html">About</a></li>
-            <li><a href="faq.html">FAQ</a></li>
+          </ul>
+        </div>
+        <div class="nav-group">
+          <p class="nav-label">External</p>
+          <ul>
             <li><a href="https://github.com/opd-ai/diagon">Repository</a></li>
             <li><a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">Roadmap</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/issues">Issues</a></li>
           </ul>
         </div>
-        <div>
-          <h4>Support</h4>
-          <ul>
-            <li><a href="https://github.com/opd-ai/diagon/issues">Issue tracker</a></li>
-            <li><a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">License (MIT)</a></li>
-          </ul>
+      </nav>
+    </aside>
+
+    <main id="main">
+      <div class="content">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <ol><li><a href="index.html">Overview</a></li><li aria-current="page">FAQ</li></ol>
+        </nav>
+
+        <span class="kicker">Common questions</span>
+        <h1>FAQ</h1>
+        <p class="lead">Answers to common questions about installing, configuring, and operating diagon. Filter across every category with the search box.</p>
+
+        <div class="faq-search">
+          <label for="faq-search-input">Search the FAQ</label>
+          <input type="search" id="faq-search-input" placeholder="filter questions and answers…" autocomplete="off" aria-describedby="faq-search-hint">
+          <p id="faq-search-hint" class="sr-only">Results filter as you type. Matching questions expand automatically.</p>
         </div>
+        <p id="faq-empty" class="faq-empty" hidden>No questions match your search. Try a different term, or <a href="https://github.com/opd-ai/diagon/issues">open an issue</a>.</p>
+
+        <section class="faq-category" aria-labelledby="cat-general">
+          <h2 id="cat-general"><span class="n">01</span>General</h2>
+          <details class="faq-item"><summary>What is diagon?</summary><div class="faq-answer"><p>diagon is a plug-and-play Monero marketplace stack for Debian. It combines the Diagon orchestrator, Store, and Paywall over a locally running i2pd router, deployable from a single profile.</p></div></details>
+          <details class="faq-item"><summary>What components make up the stack?</summary><div class="faq-answer"><p><strong>Diagon</strong> (orchestrator), <strong>Store</strong> (marketplace), <strong>Paywall</strong> (Monero payment gating and settlement), and <strong>i2pd</strong> (local I2P router).</p></div></details>
+          <details class="faq-item"><summary>What deployment model does diagon assume?</summary><div class="faq-answer"><p>A single host running all components as local services. i2pd starts first and publishes local tunnel endpoints; Store and Paywall bind to local interfaces and route I2P traffic via i2pd.</p></div></details>
+          <details class="faq-item"><summary>Is this production-ready?</summary><div class="faq-answer"><p>It targets a baseline single-host deployment. Production hardening beyond baseline security controls is out of scope for the current roadmap; use the production wallet checklist before going live.</p></div></details>
+          <details class="faq-item"><summary>Why I2P instead of a public interface?</summary><div class="faq-answer"><p>Services bind only to local interfaces; all external reachability travels through i2pd I2P tunnels. Nothing is exposed on a public network interface by default.</p></div></details>
+        </section>
+
+        <section class="faq-category" aria-labelledby="cat-install">
+          <h2 id="cat-install"><span class="n">02</span>Installation</h2>
+          <details class="faq-item"><summary>Which operating systems are supported?</summary><div class="faq-answer"><p>Debian 12 (bookworm) is the baseline. An OpenBSD variant is delivered as a bootable raw disk image built via autoinstall(8).</p></div></details>
+          <details class="faq-item"><summary>What packages are required?</summary><div class="faq-answer"><p><code>curl</code>, <code>openssh-server</code>, and <code>i2pd</code>. The validation policy enforces these as required packages.</p></div></details>
+          <details class="faq-item"><summary>How do I install on Debian?</summary><div class="faq-answer"><p>Install the prerequisites, clone the repository, validate the profile, and generate the packaging plan. See the <a href="installation.html#debian">Install guide</a>.</p></div></details>
+          <details class="faq-item"><summary>Is there an option if the full installer package isn't ready?</summary><div class="faq-answer"><p>Yes — a compose/service fallback bundle for Debian with a manual install guide. Generate it with <code>--emit-debian-compose-bundle-file</code>.</p></div></details>
+          <details class="faq-item"><summary>How do I verify a successful installation?</summary><div class="faq-answer"><p>Run <code>diagonctl</code> with <code>--probe-live</code>. A healthy install shows services started in order, config files present, health endpoints returning 2xx, tunnel listeners reachable, and aggregated health ready.</p></div></details>
+        </section>
+
+        <section class="faq-category" aria-labelledby="cat-config">
+          <h2 id="cat-config"><span class="n">03</span>Configuration</h2>
+          <details class="faq-item"><summary>Where do configuration files live?</summary><div class="faq-answer"><p>Under <code>profiles/</code> — package list, preseed answers, validation policy, service contract, and the bootstrap profile. See the <a href="configuration.html#files">Configure</a> page.</p></div></details>
+          <details class="faq-item"><summary>How are secrets handled?</summary><div class="faq-answer"><p>Injected from environment variables or secure file paths, never hardcoded. The only manual operator input beyond profile defaults should be secrets, such as a Monero wallet RPC endpoint.</p></div></details>
+          <details class="faq-item"><summary>What is the policy file format?</summary><div class="faq-answer"><p>JSON with <code>required_packages</code> and <code>required_preseed</code>. The sentinel <code>*non-empty*</code> means a preseed key must exist and be non-empty.</p></div></details>
+          <details class="faq-item"><summary>What startup order does diagon enforce?</summary><div class="faq-answer"><p><code>i2pd</code>, then <code>paywall</code>, then <code>store</code>, then the <code>diagonctl</code> check. i2pd must always start before Store and Paywall.</p></div></details>
+          <details class="faq-item"><summary>What does strict mode do?</summary><div class="faq-answer"><p><code>--strict</code> promotes warnings — such as wildcard package usage — into errors.</p></div></details>
+          <details class="faq-item"><summary>Why must endpoints be local-only?</summary><div class="faq-answer"><p>Listeners and health endpoints must use <code>localhost</code>, <code>127.0.0.1</code>, or <code>::1</code>. External reachability is provided only through i2pd tunnels.</p></div></details>
+        </section>
+
+        <section class="faq-category" aria-labelledby="cat-network">
+          <h2 id="cat-network"><span class="n">04</span>i2pd &amp; Monero</h2>
+          <details class="faq-item"><summary>Which i2pd tunnel types are supported?</summary><div class="faq-answer"><p><code>client</code>, <code>http</code>, <code>http-proxy</code>, <code>socks</code>, and <code>server</code>. Both Store and Paywall require tunnel mappings.</p></div></details>
+          <details class="faq-item"><summary>Do I need a Monero wallet to test?</summary><div class="faq-answer"><p>No. Paywall supports a stubbed wallet mode for local bring-up. For production, use the wallet validation checklist to verify Monero wallet RPC readiness and settlement.</p></div></details>
+          <details class="faq-item"><summary>How do I validate a production Monero wallet?</summary><div class="faq-answer"><p>Generate the checklist with <code>--emit-wallet-validation-checklist-file</code>. It covers secrets preflight, Monero RPC probes, and settlement verification. See <a href="reports.html#operations">Reports</a>.</p></div></details>
+          <details class="faq-item"><summary>How does diagon handle i2pd startup races?</summary><div class="faq-answer"><p>Runtime readiness checks use capped exponential backoff. Tune <code>--probe-timeout</code> and <code>--probe-interval</code> for slower hosts.</p></div></details>
+        </section>
+
+        <section class="faq-category" aria-labelledby="cat-variants">
+          <h2 id="cat-variants"><span class="n">05</span>Variants</h2>
+          <details class="faq-item"><summary>What is the difference between the Debian and OpenBSD variants?</summary><div class="faq-answer"><p>Both reuse the same profile, policy, contract, and tooling. Debian ships an installer ISO plus systemd units; OpenBSD produces a bootable raw disk image via autoinstall(8). See <a href="variants.html">Variants</a>.</p></div></details>
+          <details class="faq-item"><summary>When should I use the compose fallback?</summary><div class="faq-answer"><p>For a quick, reproducible bring-up on Debian while the full installer package is being finalized. It includes a manual install guide.</p></div></details>
+        </section>
+
+        <section class="faq-category" aria-labelledby="cat-reports">
+          <h2 id="cat-reports"><span class="n">06</span>Reports</h2>
+          <details class="faq-item"><summary>What reports can diagon generate?</summary><div class="faq-answer"><p>An operator runbook, bootstrap quickstart, wallet checklist, config-injection bundle, Debian package baseline, dependency manifest, compose fallback, release smoke plan, release baseline, and a Definition-of-Done report. Browse them on the <a href="reports.html">Reports</a> page.</p></div></details>
+          <details class="faq-item"><summary>How do I generate the reports myself?</summary><div class="faq-answer"><p>Each is produced by a <code>--emit-*</code> flag on <code>diagonctl</code>. The <a href="reports.html#regenerate">Regenerate all</a> section has a single command that produces the full set.</p></div></details>
+          <details class="faq-item"><summary>Can a report be printed to stdout?</summary><div class="faq-answer"><p>Yes — pass <code>-</code> as the emit file path for any <code>--emit-*</code> flag to write to stdout instead of a file.</p></div></details>
+        </section>
+
+        <section class="faq-category" aria-labelledby="cat-support">
+          <h2 id="cat-support"><span class="n">07</span>Support &amp; development</h2>
+          <details class="faq-item"><summary>Where do I report bugs or request features?</summary><div class="faq-answer"><p>Open an issue on the <a href="https://github.com/opd-ai/diagon/issues">GitHub issue tracker</a>.</p></div></details>
+          <details class="faq-item"><summary>How do I run the tests locally?</summary><div class="faq-answer"><p>Run <code>go test ./...</code> from the repository root.</p></div></details>
+          <details class="faq-item"><summary>What license is diagon released under?</summary><div class="faq-answer"><p>The MIT License. See the <a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">LICENSE file</a> and the <a href="about.html">About</a> page.</p></div></details>
+        </section>
+
+        <div class="callout callout-note">
+          <span class="tag">Still stuck</span>
+          <p>If your question isn't answered here, <a href="https://github.com/opd-ai/diagon/issues">open an issue</a> so we can help and improve this FAQ.</p>
+        </div>
+
+        <footer class="page-footer">
+          <div class="cols">
+            <a href="getting-started.html">Get started</a>
+            <a href="configuration.html">Configure</a>
+            <a href="reports.html">Reports</a>
+            <a href="https://github.com/opd-ai/diagon">GitHub</a>
+          </div>
+          <p>diagon — MIT licensed.</p>
+        </footer>
       </div>
-      <p class="footer-bottom">diagon is released under the MIT License. Documentation built as static HTML — no trackers, no external dependencies.</p>
-    </div>
-  </footer>
+    </main>
+  </div>
   <script src="js/script.js" defer></script>
 </body>
 </html>
