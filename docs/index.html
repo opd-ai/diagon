@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>diagon — Plug-and-play Monero marketplace stack for Debian</title>
+  <meta name="description" content="diagon is a plug-and-play Monero marketplace stack for Debian, combining the Diagon orchestrator, Store, and Paywall over a local i2pd router.">
+  <meta name="theme-color" content="#6a3fb5">
+  <link rel="canonical" href="https://opd-ai.github.io/diagon/">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <nav class="nav" aria-label="Primary">
+      <a class="brand" href="index.html"><span class="mark" aria-hidden="true">d</span> diagon</a>
+      <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">
+        <span aria-hidden="true">☰</span> Menu
+      </button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html" aria-current="page">Home</a></li>
+        <li><a href="getting-started.html">Get Started</a></li>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="configuration.html">Configuration</a></li>
+        <li><a href="variants.html">Variants</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="about.html">About</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero container">
+      <p class="tagline">Monero · I2P · Debian · OpenBSD</p>
+      <h1>diagon</h1>
+      <p class="lead">A plug-and-play Monero marketplace stack for Debian that combines the Diagon orchestrator, Store, and Paywall over a locally running i2pd router — build, boot, and pass core integration checks with one profile.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="getting-started.html">Get started &rarr;</a>
+        <a class="btn btn-secondary" href="https://github.com/opd-ai/diagon">View on GitHub</a>
+      </div>
+    </section>
+
+    <div class="container">
+      <section aria-labelledby="what-is">
+        <h2 id="what-is">What is diagon?</h2>
+        <p>diagon integrates four components into a single, single-host deployment that runs entirely on local interfaces and routes marketplace traffic through I2P:</p>
+        <div class="grid">
+          <div class="card">
+            <h3>Diagon</h3>
+            <p>The system orchestrator and operator entrypoint. It wires component configs, manages startup order, and aggregates health checks.</p>
+          </div>
+          <div class="card">
+            <h3>Store</h3>
+            <p>The marketplace frontend and backend, exposed over an i2pd tunnel and gated by the Paywall for settlement.</p>
+          </div>
+          <div class="card">
+            <h3>Paywall</h3>
+            <p>Monero payment gating and settlement logic, with a stubbed wallet mode for CI and a production wallet validation path.</p>
+          </div>
+          <div class="card">
+            <h3>i2pd</h3>
+            <p>A local I2P router daemon that starts first and publishes the tunnels the marketplace services depend on.</p>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="features">
+        <h2 id="features">Key features</h2>
+        <ul>
+          <li><strong>One-profile bootstrap.</strong> Boot the full stack from a single deployment profile with deterministic local defaults — no manual edits beyond secrets.</li>
+          <li><strong>Deterministic startup.</strong> i2pd starts first, then Paywall, then Store, then the Diagon orchestration check.</li>
+          <li><strong>Local-only by default.</strong> Every service binds to <code>localhost</code>, <code>127.0.0.1</code>, or <code>::1</code>; external reach goes through i2pd tunnels.</li>
+          <li><strong>Validation CLI.</strong> <code>diagonctl</code> validates profiles, service contracts, i2pd tunnels, and runs live readiness probes.</li>
+          <li><strong>Debian &amp; OpenBSD.</strong> A Debian 12 (bookworm) baseline plus an OpenBSD variant that reuses the same profile and tooling.</li>
+          <li><strong>CI-proven.</strong> An eight-stage CI pipeline proves the system can build, boot, and pass integration, contract, smoke, and packaging checks.</li>
+        </ul>
+      </section>
+
+      <div class="callout callout-info">
+        <p class="callout-title">New here?</p>
+        <p>Start with the <a href="getting-started.html">Get Started</a> guide to validate a profile and boot the stack, then read the <a href="configuration.html">Configuration</a> reference to tune it for your host.</p>
+      </div>
+
+      <section aria-labelledby="quicklinks">
+        <h2 id="quicklinks">Explore the docs</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Get Started</h3>
+            <p>Prerequisites, quick install, and first-run validation.</p>
+            <a href="getting-started.html">Quick start &rarr;</a>
+          </div>
+          <div class="card">
+            <h3>Installation</h3>
+            <p>Detailed procedures for Debian, OpenBSD, and the compose fallback.</p>
+            <a href="installation.html">Install guide &rarr;</a>
+          </div>
+          <div class="card">
+            <h3>Configuration</h3>
+            <p>Profiles, service contracts, secrets, and tuning.</p>
+            <a href="configuration.html">Config reference &rarr;</a>
+          </div>
+          <div class="card">
+            <h3>Variants</h3>
+            <p>Debian, OpenBSD, and interim compose editions compared.</p>
+            <a href="variants.html">Compare variants &rarr;</a>
+          </div>
+          <div class="card">
+            <h3>FAQ</h3>
+            <p>Answers to common installation, config, and support questions.</p>
+            <a href="faq.html">Read the FAQ &rarr;</a>
+          </div>
+          <div class="card">
+            <h3>About</h3>
+            <p>Project mission, roadmap, license, and how to contribute.</p>
+            <a href="about.html">About the project &rarr;</a>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="getting-started.html">Get Started</a></li>
+            <li><a href="installation.html">Installation</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="variants.html">Variants</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Project</h4>
+          <ul>
+            <li><a href="about.html">About</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="https://github.com/opd-ai/diagon">Repository</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">Roadmap</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Support</h4>
+          <ul>
+            <li><a href="https://github.com/opd-ai/diagon/issues">Issue tracker</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">License (MIT)</a></li>
+          </ul>
+        </div>
+      </div>
+      <p class="footer-bottom">diagon is released under the MIT License. Documentation built as static HTML — no trackers, no external dependencies.</p>
+    </div>
+  </footer>
+  <script src="js/script.js" defer></script>
+</body>
+</html>

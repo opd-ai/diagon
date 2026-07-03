@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started — diagon</title>
+  <meta name="description" content="Quick start guide for diagon: prerequisites, cloning the repository, validating a profile, running live readiness probes, and first-run verification.">
+  <meta name="theme-color" content="#6a3fb5">
+  <link rel="canonical" href="https://opd-ai.github.io/diagon/getting-started.html">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <nav class="nav" aria-label="Primary">
+      <a class="brand" href="index.html"><span class="mark" aria-hidden="true">d</span> diagon</a>
+      <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">
+        <span aria-hidden="true">☰</span> Menu
+      </button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="getting-started.html" aria-current="page">Get Started</a></li>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="configuration.html">Configuration</a></li>
+        <li><a href="variants.html">Variants</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="about.html">About</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <ol>
+          <li><a href="index.html">Home</a></li>
+          <li aria-current="page">Getting Started</li>
+        </ol>
+      </nav>
+
+      <h1>Getting started</h1>
+      <p class="lead">Validate a deployment profile and boot the diagon stack on a single host. This quick start uses the <code>diagonctl</code> validation CLI shipped with the repository.</p>
+
+      <div class="callout callout-info">
+        <p class="callout-title">What you are building</p>
+        <p>A single Debian host running i2pd, Paywall, Store, and the Diagon orchestration check — wired from one profile, bound to local interfaces, and routed over I2P.</p>
+      </div>
+
+      <h2 id="prerequisites">Prerequisites</h2>
+      <p>Before you begin, confirm you have:</p>
+      <ul class="checklist">
+        <li>A supported host: <strong>Debian 12 (bookworm)</strong> or the OpenBSD variant.</li>
+        <li><strong>Go</strong> installed (the repository targets the toolchain pinned in <code>go.mod</code>) to build and run <code>diagonctl</code>.</li>
+        <li><strong>git</strong> to clone the repository.</li>
+        <li>Secrets you intend to inject (for example, a Monero wallet RPC endpoint) — never hardcoded, always supplied via environment or secure file paths.</li>
+        <li>Network namespace support if you plan to run live i2pd tunnels locally.</li>
+      </ul>
+
+      <h2 id="quick-start">Quick start</h2>
+      <ol class="steps">
+        <li>
+          <h3>Clone the repository</h3>
+          <pre><code>git clone https://github.com/opd-ai/diagon.git
+cd diagon</code></pre>
+        </li>
+        <li>
+          <h3>Validate the profile</h3>
+          <p>Run the validator against the bundled profile to check required packages, preseed keys, and warnings:</p>
+          <pre><code>go run ./cmd/diagonctl \
+  --profile-dir profiles \
+  --profile-name myprofile</code></pre>
+        </li>
+        <li>
+          <h3>Validate against the policy and service contract</h3>
+          <p>Add the JSON policy and service integration contract for a fuller check, with machine-readable output:</p>
+          <pre><code>go run ./cmd/diagonctl \
+  --profile-dir profiles \
+  --profile-name myprofile \
+  --policy-file profiles/validation-policy.json \
+  --service-contract-file profiles/service-contract.json \
+  --format json</code></pre>
+        </li>
+        <li>
+          <h3>Validate the single-host bootstrap profile</h3>
+          <p>Check the deterministic Phase 1 startup order and local default wiring:</p>
+          <pre><code>go run ./cmd/diagonctl \
+  --profile-dir profiles \
+  --profile-name myprofile \
+  --policy-file profiles/validation-policy.json \
+  --bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+  --format json</code></pre>
+        </li>
+        <li>
+          <h3>Run live readiness probes</h3>
+          <p>With the services running, verify listeners, health endpoints, tunnel reachability, and dependency sequencing:</p>
+          <pre><code>go run ./cmd/diagonctl \
+  --profile-dir profiles \
+  --profile-name myprofile \
+  --policy-file profiles/validation-policy.json \
+  --bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+  --service-contract-file profiles/service-contract.json \
+  --probe-live \
+  --probe-timeout 45s \
+  --probe-interval 750ms \
+  --format json</code></pre>
+        </li>
+      </ol>
+
+      <h2 id="first-run">First-run validation</h2>
+      <p>A healthy first run should show, in JSON output:</p>
+      <ul>
+        <li>All required packages present and required preseed keys satisfied.</li>
+        <li>Startup order resolved as <code>i2pd</code> &rarr; <code>paywall</code> &rarr; <code>store</code> &rarr; <code>diagonctl</code>.</li>
+        <li>When <code>--probe-live</code> is set, an <code>aggregated_health</code> object reporting all components ready.</li>
+      </ul>
+
+      <div class="callout callout-success">
+        <p class="callout-title">Generate a quickstart guide</p>
+        <p>You can emit a deterministic onboarding guide tailored to your inputs with <code>--emit-bootstrap-quickstart-file</code>. Use <code>-</code> to print it to stdout.</p>
+      </div>
+
+      <h2 id="run-tests">Run the test suite</h2>
+      <p>Confirm the tooling is healthy on your machine:</p>
+      <pre><code>go test ./...</code></pre>
+
+      <h2 id="strict-mode">Strict mode</h2>
+      <p>Treat warnings (such as wildcard package usage) as errors for CI-grade validation:</p>
+      <pre><code>go run ./cmd/diagonctl --profile-dir profiles --profile-name myprofile --strict</code></pre>
+
+      <h2 id="next">Next steps</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Full installation</h3>
+          <p>Detailed platform procedures and post-install checks.</p>
+          <a href="installation.html">Installation guide &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Configuration</h3>
+          <p>Profiles, contracts, secrets, and tuning options.</p>
+          <a href="configuration.html">Configuration &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Troubleshooting</h3>
+          <p>Common issues and their fixes.</p>
+          <a href="faq.html">FAQ &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="getting-started.html">Get Started</a></li>
+            <li><a href="installation.html">Installation</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="variants.html">Variants</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Project</h4>
+          <ul>
+            <li><a href="about.html">About</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="https://github.com/opd-ai/diagon">Repository</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">Roadmap</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Support</h4>
+          <ul>
+            <li><a href="https://github.com/opd-ai/diagon/issues">Issue tracker</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">License (MIT)</a></li>
+          </ul>
+        </div>
+      </div>
+      <p class="footer-bottom">diagon is released under the MIT License. Documentation built as static HTML — no trackers, no external dependencies.</p>
+    </div>
+  </footer>
+  <script src="js/script.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration — diagon</title>
+  <meta name="description" content="Configuration reference for diagon: profile files, validation policy, service contracts, the bootstrap profile, secrets handling, i2pd tunnels, and performance tuning.">
+  <meta name="theme-color" content="#6a3fb5">
+  <link rel="canonical" href="https://opd-ai.github.io/diagon/configuration.html">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <nav class="nav" aria-label="Primary">
+      <a class="brand" href="index.html"><span class="mark" aria-hidden="true">d</span> diagon</a>
+      <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">
+        <span aria-hidden="true">☰</span> Menu
+      </button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="getting-started.html">Get Started</a></li>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="configuration.html" aria-current="page">Configuration</a></li>
+        <li><a href="variants.html">Variants</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="about.html">About</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <ol>
+          <li><a href="index.html">Home</a></li>
+          <li aria-current="page">Configuration</li>
+        </ol>
+      </nav>
+
+      <h1>Configuration</h1>
+      <p class="lead">diagon generates every component config from a single deployment profile. Secrets are injected from the environment or secure file paths — never hardcoded. This page documents the key files, options, and tuning knobs.</p>
+
+      <h2 id="file-locations">Configuration file locations</h2>
+      <div class="table-wrap">
+        <table>
+          <caption class="sr-only">diagon configuration files</caption>
+          <thead>
+            <tr><th scope="col">File</th><th scope="col">Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>profiles/myprofile.packages</code></td><td>Package list for the installer profile.</td></tr>
+            <tr><td><code>profiles/myprofile.preseed</code></td><td>Preseed answers (for example <code>passwd/root-login</code>, <code>time/zone</code>).</td></tr>
+            <tr><td><code>profiles/validation-policy.json</code></td><td>Policy contract defining required packages and preseed keys.</td></tr>
+            <tr><td><code>profiles/service-contract.json</code></td><td>Service topology: listeners, health endpoints, ordering, and i2pd tunnels.</td></tr>
+            <tr><td><code>profiles/local-single-host-bootstrap.json</code></td><td>Phase 1 bootstrap profile with deterministic startup and local defaults.</td></tr>
+            <tr><td><code>.github/integration-matrix.json</code></td><td>Frozen Debian baseline, dependencies, and component versions.</td></tr>
+            <tr><td><code>profiles/openbsd/</code></td><td>OpenBSD variant config set (<code>install.conf</code>, <code>install.site</code>, <code>pkg.list</code>).</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="policy">Policy file format</h2>
+      <p>The policy contract defines required package and preseed sets per environment. <code>*non-empty*</code> is a sentinel meaning the key must exist and hold a non-empty value:</p>
+      <pre><code>{
+  "required_packages": ["curl", "i2pd", "openssh-server"],
+  "required_preseed": {
+    "passwd/root-login": "false",
+    "time/zone": "*non-empty*"
+  }
+}</code></pre>
+
+      <h2 id="service-contract">Service contract</h2>
+      <p>The service contract validator enforces the marketplace topology. Key rules:</p>
+      <ul>
+        <li>Required service definitions for <code>i2pd</code>, <code>store</code>, and <code>paywall</code>.</li>
+        <li>Local-only listener and health endpoint hosts: <code>localhost</code>, <code>127.0.0.1</code>, or <code>::1</code>.</li>
+        <li>Startup ordering: <code>i2pd</code> must start before <code>store</code> and <code>paywall</code>.</li>
+        <li>Dependency integrity with cycle detection.</li>
+        <li>Store &rarr; Paywall API link endpoint port compatibility.</li>
+        <li>i2pd tunnel type validation: <code>client</code>, <code>http</code>, <code>http-proxy</code>, <code>socks</code>, or <code>server</code>.</li>
+        <li>Local-only tunnel listener/target addresses with target-service port compatibility.</li>
+        <li>Required tunnel mappings for both <code>store</code> and <code>paywall</code>.</li>
+      </ul>
+
+      <h2 id="bootstrap">Bootstrap profile defaults</h2>
+      <p>The bootstrap profile validator enforces Phase 1 single-host defaults:</p>
+      <ul>
+        <li>Deterministic startup order: <code>i2pd</code>, <code>paywall</code>, <code>store</code>, <code>diagonctl</code>.</li>
+        <li>Local-only bind and health endpoints for all bootstrap components.</li>
+        <li>Default local Store &rarr; Paywall endpoint wiring and stubbed Paywall wallet mode.</li>
+        <li>Absolute, Debian-oriented config and secret file paths where file-backed secrets are used.</li>
+        <li>Expected i2pd tunnel names for the single-host bootstrap profile.</li>
+      </ul>
+
+      <h2 id="secrets">Secrets handling</h2>
+      <div class="callout callout-warning">
+        <p class="callout-title">Never hardcode secrets</p>
+        <p>Secrets are injected from environment variables or secure file paths. The only manual operator input beyond the profile defaults should be secrets — for example, a Monero wallet RPC endpoint.</p>
+      </div>
+      <p>For production wallet readiness, generate the wallet validation checklist, which captures secrets preflight, Monero wallet RPC probes, and paywall settlement verification commands:</p>
+      <pre><code>go run ./cmd/diagonctl \
+  --profile-dir profiles \
+  --profile-name myprofile \
+  --policy-file profiles/validation-policy.json \
+  --bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+  --service-contract-file profiles/service-contract.json \
+  --integration-matrix-file .github/integration-matrix.json \
+  --integration-environment debian-12 \
+  --emit-wallet-validation-checklist-file /tmp/diagon-wallet-validation-checklist.md \
+  --format json</code></pre>
+
+      <h2 id="config-injection">Generated config injection</h2>
+      <p>Diagon can emit a config injection bundle wiring Store, Paywall, and i2pd paths and ports:</p>
+      <pre><code>go run ./cmd/diagonctl \
+  --profile-dir profiles \
+  --profile-name myprofile \
+  --policy-file profiles/validation-policy.json \
+  --bootstrap-profile-file profiles/local-single-host-bootstrap.json \
+  --service-contract-file profiles/service-contract.json \
+  --emit-config-injection-file /tmp/diagon-config-injection.json \
+  --format json</code></pre>
+      <p>Use <code>--emit-config-injection-file -</code> to write the bundle to stdout.</p>
+
+      <h2 id="probes">Live probe options</h2>
+      <p>When <code>--probe-live</code> is enabled, <code>diagonctl</code> performs runtime checks with capped retry backoff so transient startup races do not require a fixed high-frequency poll rate:</p>
+      <div class="table-wrap">
+        <table>
+          <caption class="sr-only">Live probe flags</caption>
+          <thead>
+            <tr><th scope="col">Flag</th><th scope="col">Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>--probe-live</code></td><td>Enable runtime listener, health, tunnel, and sequencing checks.</td></tr>
+            <tr><td><code>--probe-timeout</code></td><td>Overall readiness timeout (for example <code>45s</code>).</td></tr>
+            <tr><td><code>--probe-interval</code></td><td>Base retry interval between readiness attempts (for example <code>750ms</code>).</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Runtime probe output includes an aggregated component health view (<code>aggregated_health</code>) in JSON mode, marked failed when any component readiness probe fails.</p>
+
+      <h2 id="tuning">Performance tuning</h2>
+      <ul>
+        <li><strong>Backoff pacing.</strong> Tune <code>--probe-interval</code> up on slower hosts to reduce probe churn; the capped exponential backoff prevents busy polling.</li>
+        <li><strong>Timeouts.</strong> Increase <code>--probe-timeout</code> when i2pd tunnel establishment is slow on first boot.</li>
+        <li><strong>Startup ordering.</strong> Keep the frozen order (i2pd first) to avoid readiness races between dependent services.</li>
+      </ul>
+
+      <h2 id="troubleshooting">Troubleshooting configuration issues</h2>
+      <ul>
+        <li><strong>Validation fails on wildcard packages.</strong> These are warnings by default; running with <code>--strict</code> promotes them to errors.</li>
+        <li><strong>Endpoint incompatibility warning.</strong> Confirm the Store &rarr; Paywall API link ports match in <code>service-contract.json</code>.</li>
+        <li><strong>Non-local host rejected.</strong> Listeners and health endpoints must use <code>localhost</code>, <code>127.0.0.1</code>, or <code>::1</code>.</li>
+        <li><strong>Readiness timeout.</strong> A dependent service became ready before its dependency, or a service never became ready — check startup order and increase the timeout.</li>
+      </ul>
+      <p>More answers are on the <a href="faq.html">FAQ</a> page.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="getting-started.html">Get Started</a></li>
+            <li><a href="installation.html">Installation</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="variants.html">Variants</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Project</h4>
+          <ul>
+            <li><a href="about.html">About</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="https://github.com/opd-ai/diagon">Repository</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">Roadmap</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Support</h4>
+          <ul>
+            <li><a href="https://github.com/opd-ai/diagon/issues">Issue tracker</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">License (MIT)</a></li>
+          </ul>
+        </div>
+      </div>
+      <p class="footer-bottom">diagon is released under the MIT License. Documentation built as static HTML — no trackers, no external dependencies.</p>
+    </div>
+  </footer>
+  <script src="js/script.js" defer></script>
+</body>
+</html>

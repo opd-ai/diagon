@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://opd-ai.github.io/diagon/sitemap.xml

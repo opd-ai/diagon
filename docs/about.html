@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — diagon</title>
+  <meta name="description" content="About diagon: project mission, architecture, roadmap, contributing guidelines, license, and support channels.">
+  <meta name="theme-color" content="#6a3fb5">
+  <link rel="canonical" href="https://opd-ai.github.io/diagon/about.html">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <nav class="nav" aria-label="Primary">
+      <a class="brand" href="index.html"><span class="mark" aria-hidden="true">d</span> diagon</a>
+      <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">
+        <span aria-hidden="true">☰</span> Menu
+      </button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="getting-started.html">Get Started</a></li>
+        <li><a href="installation.html">Installation</a></li>
+        <li><a href="configuration.html">Configuration</a></li>
+        <li><a href="variants.html">Variants</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="about.html" aria-current="page">About</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <ol>
+          <li><a href="index.html">Home</a></li>
+          <li aria-current="page">About</li>
+        </ol>
+      </nav>
+
+      <h1>About diagon</h1>
+      <p class="lead">diagon exists to make a Monero marketplace stack easy to deploy and operate on a single Debian host, with I2P connectivity built in and a CI path that proves it works.</p>
+
+      <h2 id="mission">Mission</h2>
+      <p>The goal is to deliver a plug-and-play Monero marketplace stack for Debian that combines Diagon, Store, and Paywall over a locally running i2pd service — with a minimal CI path that proves the system can build, boot, and pass core integration checks. The project favors deterministic defaults, a single deployment profile, and an operator runbook so that non-expert users can provision and run the full stack.</p>
+
+      <h2 id="architecture">Architecture</h2>
+      <p>All components run as local services on one host:</p>
+      <ul>
+        <li><strong>Diagon</strong> — system orchestrator and operator entrypoint; manages startup order, health checks, and configuration wiring.</li>
+        <li><strong>Store</strong> — the marketplace frontend/backend component.</li>
+        <li><strong>Paywall</strong> — Monero payment gating and settlement logic.</li>
+        <li><strong>i2pd</strong> — a local router daemon that starts first and publishes the I2P tunnels the services depend on.</li>
+      </ul>
+      <p>Component configs are generated from one deployment profile, secrets are injected from the environment or secure file paths, and health/readiness probes are exposed per component for CI and operations.</p>
+
+      <h2 id="status">Project status</h2>
+      <p>diagon's roadmap works through alignment and contract freeze, local single-host bootstrap, Diagon integration wiring, a Debian service and packaging baseline, and release-candidate readiness — backed by an eight-stage CI validation plan. See the roadmap for the current checklist and progress log.</p>
+
+      <h2 id="links">Project links</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Repository</h3>
+          <p>Source code, profiles, and CI workflows.</p>
+          <a href="https://github.com/opd-ai/diagon">github.com/opd-ai/diagon &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Roadmap</h3>
+          <p>Goals, phases, risks, and definition of done.</p>
+          <a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">ROADMAP.md &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Issue tracker</h3>
+          <p>Report bugs and request features.</p>
+          <a href="https://github.com/opd-ai/diagon/issues">Issues &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>License</h3>
+          <p>Released under the MIT License.</p>
+          <a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">LICENSE &rarr;</a>
+        </div>
+      </div>
+
+      <h2 id="contributing">Contributing</h2>
+      <p>Contributions are welcome. To get started:</p>
+      <ul>
+        <li>Read the <a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">roadmap</a> to understand scope and current phase.</li>
+        <li>Run <code>go test ./...</code> and validate profiles with <code>diagonctl</code> before opening a pull request.</li>
+        <li>Keep services local-only and secrets externalized, matching the existing contracts.</li>
+        <li>Open an <a href="https://github.com/opd-ai/diagon/issues">issue</a> to discuss significant changes first.</li>
+      </ul>
+
+      <h2 id="license">License</h2>
+      <p>diagon is released under the <strong>MIT License</strong>, Copyright &copy; 2026 opdai. You are free to use, modify, and distribute it under the terms of that license. See the <a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">LICENSE file</a> for the full text.</p>
+
+      <h2 id="support">Support &amp; contact</h2>
+      <p>The primary support channel is the <a href="https://github.com/opd-ai/diagon/issues">GitHub issue tracker</a>. For documentation corrections, open an issue or a pull request against the repository.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="getting-started.html">Get Started</a></li>
+            <li><a href="installation.html">Installation</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="variants.html">Variants</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Project</h4>
+          <ul>
+            <li><a href="about.html">About</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="https://github.com/opd-ai/diagon">Repository</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/blob/main/ROADMAP.md">Roadmap</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Support</h4>
+          <ul>
+            <li><a href="https://github.com/opd-ai/diagon/issues">Issue tracker</a></li>
+            <li><a href="https://github.com/opd-ai/diagon/blob/main/LICENSE">License (MIT)</a></li>
+          </ul>
+        </div>
+      </div>
+      <p class="footer-bottom">diagon is released under the MIT License. Documentation built as static HTML — no trackers, no external dependencies.</p>
+    </div>
+  </footer>
+  <script src="js/script.js" defer></script>
+</body>
+</html>
